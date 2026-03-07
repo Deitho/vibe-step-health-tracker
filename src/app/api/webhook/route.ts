@@ -11,8 +11,18 @@ import { format } from 'date-fns';
 
 export async function POST(request: Request) {
     try {
-        const authHeader = request.headers.get('x-webhook-secret');
-        if (authHeader !== process.env.WEBHOOK_SECRET) {
+        const secretHeader = request.headers.get('x-webhook-secret');
+        const authHeader = request.headers.get('authorization')?.replace('Bearer ', '');
+        const webhookSecret = request.headers.get('webhook-secret');
+
+        const providedSecret = secretHeader || authHeader || webhookSecret;
+
+        if (providedSecret !== process.env.WEBHOOK_SECRET) {
+            console.error('Unauthorized Webhook Call. Provided:', providedSecret, 'Expected:', process.env.WEBHOOK_SECRET ? 'SET' : 'MISSING');
+            // Log all headers to help debug the HC Webhook app payload
+            const headersList = Object.fromEntries(request.headers.entries());
+            console.error('Received Headers:', headersList);
+
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

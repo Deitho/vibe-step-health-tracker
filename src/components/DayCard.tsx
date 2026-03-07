@@ -44,12 +44,12 @@ export function DayCard({ data }: DayCardProps) {
 
     return (
         <div className={`
-      relative overflow-hidden rounded-2xl border-2 p-5 flex items-center justify-between
+      relative rounded-2xl border-2 p-5 flex items-center justify-between
       shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1
       ${statusClasses}
     `}>
             {/* Decorative left accent bar based on the vibrant design system */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${status === "COMPLETED" ? "bg-success" :
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${status === "COMPLETED" ? "bg-success" :
                 status === "PENDING" ? "bg-warning" :
                     "bg-error"
                 }`} />

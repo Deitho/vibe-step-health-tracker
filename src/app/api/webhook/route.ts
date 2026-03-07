@@ -51,11 +51,12 @@ export async function POST(request: Request) {
             totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         }
 
-        // Calculate active minutes from exercise_session if present
-        if (Array.isArray(body.exercise_session)) {
+        // Calculate active minutes from exercise or exercise_session if present
+        const exerciseArray = body.exercise || body.exercise_session;
+        if (Array.isArray(exerciseArray)) {
             const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
-            const todaysSessions = body.exercise_session.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
-            const sessionsToCount = todaysSessions.length > 0 ? todaysSessions : body.exercise_session;
+            const todaysSessions = exerciseArray.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
+            const sessionsToCount = todaysSessions.length > 0 ? todaysSessions : exerciseArray;
 
             totalActiveMinutes = sessionsToCount.reduce((acc: number, session: any) => {
                 if (session.start_time && session.end_time) {
@@ -89,11 +90,11 @@ export async function POST(request: Request) {
         let newCalories = calories;
 
         if (existingRecord) {
-            // Upsert logic: If webhook is called multiple times, we might add steps or just take the max
-            // The SOP states "Aynı güne ait sonraki istekler önceki kaydı günceller (steps toplanır, calories güncellenir)."
-            // Assuming webhook sends delta or we should just add them? "steps toplanır" means accumulated.
-            newSteps = existingRecord.steps + steps;
-            newCalories = existingRecord.calories + calories; // Or should we take max? The SOP says "toplanır" or "en güncel değer alınır". Let's assume the Webhook sends delta because the docs say "steps toplanır".
+            // Upsert logic: It appears the webhook sends the *total* accumulated steps for the time period.
+            // Rather than blindly adding them (which doubles the records on multiple pings), we take the 
+            // maximum of existing steps vs incoming steps.
+            newSteps = Math.max(existingRecord.steps, steps);
+            newCalories = Math.max(existingRecord.calories, calories);
         }
 
         // Provide exercise credit if the new payload has exercise, or if it was already achieved today.

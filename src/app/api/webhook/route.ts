@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         let totalActiveMinutes = 0;
         const timestamp = body.timestamp || new Date().toISOString();
 
-        // Extract the MAX step count for TODAY (since the webhook sends cumulative overlapping blocks)
+        // Sum up the step counts for TODAY
         if (Array.isArray(body.steps)) {
             const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
             const todaysSteps = body.steps.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
@@ -42,15 +42,15 @@ export async function POST(request: Request) {
             // If the filter found today's steps, use them, otherwise fallback to all steps if no dates exist
             const stepsToCount = todaysSteps.length > 0 ? todaysSteps : body.steps;
 
-            // Extract the max count instead of summing, because HC sends cumulative blocks bridging multiple days/hours
-            totalSteps = stepsToCount.reduce((max: number, stepObj: any) => Math.max(max, stepObj.count || 0), 0);
+            // Sum the counts (HC Webhook payload sends distinct time blocks, not cumulative duplicates)
+            totalSteps = stepsToCount.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
         }
 
-        // Extract MAX calories if present (HC webhook sends cumulative blocks)
+        // Sum up calories if present
         if (Array.isArray(body.active_calories_burned)) {
-            totalCalories = body.active_calories_burned.reduce((max: number, calObj: any) => Math.max(max, calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            totalCalories = body.active_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         } else if (Array.isArray(body.total_calories_burned)) {
-            totalCalories = body.total_calories_burned.reduce((max: number, calObj: any) => Math.max(max, calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         }
 
         // Calculate active minutes from exercise or exercise_session if present
@@ -88,16 +88,10 @@ export async function POST(request: Request) {
         const { rows: existingRows } = await sql`SELECT * FROM daily_stats WHERE date = ${dateStr} LIMIT 1`;
         let existingRecord = existingRows[0];
 
-        let newSteps = steps;
-        let newCalories = calories;
-
-        if (existingRecord) {
-            // Upsert logic: It appears the webhook sends the *total* accumulated steps for the time period.
-            // Rather than blindly adding them (which doubles the records on multiple pings), we take the 
-            // maximum of existing steps vs incoming steps.
-            newSteps = Math.max(existingRecord.steps, steps);
-            newCalories = Math.max(existingRecord.calories, calories);
-        }
+        // OVERWRITE the database with the fresh values from the webhook.
+        // If the webhook somehow sends 0 (e.g. lack of permissions), we safely keep the existing count.
+        let newSteps = steps > 0 ? steps : (existingRecord?.steps || 0);
+        let newCalories = calories > 0 ? calories : (existingRecord?.calories || 0);
 
         // Provide exercise credit if the new payload has exercise, or if it was already achieved today.
         const currentBatchHasExercise = calculateHasExercise(calories, totalActiveMinutes);

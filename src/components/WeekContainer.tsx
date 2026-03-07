@@ -50,10 +50,10 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
     const dateRangeString = `${formatShortDate(weekStart.toISOString())} - ${formatShortDate(weekEnd.toISOString())}`;
 
     return (
-        <div className="w-full relative bg-card/60 backdrop-blur-xl border border-card-border rounded-3xl p-4 md:p-6 shadow-xl">
+        <div className="w-full relative bg-card/60 backdrop-blur-xl border border-card-border rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-xl">
 
             {/* Week Header */}
-            <div className="flex items-center justify-between mb-6 md:mb-8 z-10 relative">
+            <div className="flex items-center justify-between mb-4 md:mb-6 z-10 relative">
                 <button
                     onClick={() => paginate(-1)}
                     className="p-2 md:p-3 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors hover:scale-105"
@@ -82,7 +82,7 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
             </div>
 
             {/* Week Content (Animated Days List) */}
-            <div className="relative min-h-[600px]">
+            <div className="relative z-20 min-h-[450px]">
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     <motion.div
                         key={page}
@@ -95,7 +95,7 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
                             x: { type: "spring", stiffness: 300, damping: 30 },
                             opacity: { duration: 0.2 },
                         }}
-                        className="flex flex-col gap-4 absolute w-full"
+                        className="flex flex-col gap-2 md:gap-3 absolute w-full"
                     >
                         {(!days || days.length === 0) ? (
                             <div className="text-center py-10 opacity-50 font-medium">Bu haftaya ait veri bulunamadı.</div>

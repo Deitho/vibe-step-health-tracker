@@ -50,27 +50,27 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
     const dateRangeString = `${formatShortDate(weekStart.toISOString())} - ${formatShortDate(weekEnd.toISOString())}`;
 
     return (
-        <div className="w-full relative overflow-hidden bg-white/50 backdrop-blur-md border md:border-2 border-primary/10 rounded-3xl p-4 md:p-8 shadow-sm">
+        <div className="w-full relative bg-card/60 backdrop-blur-xl border border-card-border rounded-3xl p-4 md:p-6 shadow-xl">
 
             {/* Week Header */}
-            <div className="flex items-center justify-between mb-8 z-10 relative">
+            <div className="flex items-center justify-between mb-6 md:mb-8 z-10 relative">
                 <button
                     onClick={() => paginate(-1)}
-                    className="p-3 md:p-4 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors hover:scale-105"
+                    className="p-2 md:p-3 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors hover:scale-105"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
                 </button>
 
-                <h2 className="text-xl md:text-3xl font-black text-foreground tracking-tight uppercase">
+                <h2 className="text-lg md:text-2xl font-black text-foreground tracking-tight uppercase">
                     {dateRangeString}
                 </h2>
 
                 <button
                     onClick={() => paginate(1)}
                     disabled={!canGoNext}
-                    className={`p-3 md:p-4 rounded-full transition-colors ${canGoNext
+                    className={`p-2 md:p-3 rounded-full transition-colors ${canGoNext
                         ? "bg-primary/10 hover:bg-primary/20 text-primary hover:scale-105"
                         : "bg-gray-100 text-gray-300 cursor-not-allowed"
                         }`}

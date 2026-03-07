@@ -12,10 +12,10 @@ export function SportProgressBar({ current, total }: SportProgressBarProps) {
     const isPassed = current >= total;
 
     return (
-        <div className="w-full flex-col flex items-center mb-8">
+        <div className="w-full flex-col flex items-center mb-6">
             <div className="flex justify-between w-full max-w-md mb-2 items-end">
-                <span className="text-gray-600 font-medium text-sm tracking-wide uppercase">
-                    This Week's Activities
+                <span className="text-foreground/70 font-semibold text-xs md:text-sm tracking-wider uppercase">
+                    BU HAFTAKİ SPOR
                 </span>
                 <span
                     className={`font-bold text-lg ${isPassed ? "text-success" : "text-primary"
@@ -25,7 +25,7 @@ export function SportProgressBar({ current, total }: SportProgressBarProps) {
                 </span>
             </div>
 
-            <div className="w-full max-w-md h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner relative">
+            <div className="w-full max-w-md h-3 md:h-4 bg-card-border rounded-full overflow-hidden shadow-inner relative">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
@@ -53,7 +53,7 @@ export function SportProgressBar({ current, total }: SportProgressBarProps) {
                             clipRule="evenodd"
                         />
                     </svg>
-                    Weekly Goal Passed!
+                    Haftalık Hedef Tamamlandı!
                 </motion.p>
             )}
         </div>

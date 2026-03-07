@@ -46,13 +46,13 @@ export function DebtTooltip({ debt, children }: DebtTooltipProps) {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute z-50 bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl"
+                        className="absolute z-[100] bottom-full mb-3 left-1/2 -translate-x-1/2 w-48 p-3 bg-slate-800 text-slate-100 text-xs md:text-sm rounded-lg shadow-2xl border border-slate-700 pointer-events-none"
                     >
-                        <div className="font-semibold mb-1 text-warning">Eksik Adım Borcu</div>
-                        <p>Bu günü tamamlamak için <strong className="text-white">{debt.toLocaleString('tr-TR')}</strong> adım daha atmanız gerekiyor.</p>
+                        <div className="font-bold mb-1 text-warning">EKSİK ADIM BORCU</div>
+                        <p className="opacity-90">Bu günü tamamlamak için <strong className="text-white">{debt.toLocaleString('tr-TR')}</strong> adım daha atmanız gerekiyor.</p>
 
                         {/* Arrow */}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
                     </motion.div>
                 )}
             </AnimatePresence>

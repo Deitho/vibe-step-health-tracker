@@ -14,8 +14,9 @@ export async function POST(request: Request) {
         const secretHeader = request.headers.get('x-webhook-secret');
         const authHeader = request.headers.get('authorization')?.replace('Bearer ', '');
         const webhookSecret = request.headers.get('webhook-secret');
+        const webhookSecretUnderscore = request.headers.get('webhook_secret');
 
-        const providedSecret = secretHeader || authHeader || webhookSecret;
+        const providedSecret = secretHeader || authHeader || webhookSecret || webhookSecretUnderscore;
 
         if (providedSecret !== process.env.WEBHOOK_SECRET) {
             console.error('Unauthorized Webhook Call. Provided:', providedSecret, 'Expected:', process.env.WEBHOOK_SECRET ? 'SET' : 'MISSING');

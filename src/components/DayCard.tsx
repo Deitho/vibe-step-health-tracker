@@ -50,8 +50,8 @@ export function DayCard({ data }: DayCardProps) {
     `}>
             {/* Decorative left accent bar based on the vibrant design system */}
             <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${status === "COMPLETED" ? "bg-success" :
-                    status === "PENDING" ? "bg-warning" :
-                        "bg-error"
+                status === "PENDING" ? "bg-warning" :
+                    "bg-error"
                 }`} />
 
             {/* Date Information */}
@@ -73,22 +73,28 @@ export function DayCard({ data }: DayCardProps) {
                     <div className="flex items-center">
                         <span className="text-2xl font-black">{steps.toLocaleString("tr-TR")}</span>
                         <span className="text-sm font-medium opacity-80 ml-1">/ {target_steps.toLocaleString("tr-TR")}</span>
-                        {status === "PENDING" && debt_steps > 0 && (
-                            <DebtTooltip debt={debt_steps} />
-                        )}
+                        {/* Removed the small DebtTooltip here */}
                     </div>
                     <span className="text-xs font-semibold uppercase opacity-70 tracking-widest mt-0.5">
                         Adım
                     </span>
                 </div>
 
-                {/* Big Icon Container */}
-                <div className={`p-3 rounded-full flex items-center justify-center ${status === "COMPLETED" ? "bg-success/10" :
+                {/* Big Icon Container wrapped in Tooltip if needed */}
+                {status === "PENDING" && debt_steps > 0 ? (
+                    <DebtTooltip debt={debt_steps}>
+                        <div className="p-3 rounded-full flex items-center justify-center bg-warning/10 transition hover:scale-105">
+                            {StatusIcon}
+                        </div>
+                    </DebtTooltip>
+                ) : (
+                    <div className={`p-3 rounded-full flex items-center justify-center ${status === "COMPLETED" ? "bg-success/10" :
                         status === "PENDING" ? "bg-warning/10" :
                             "bg-error/10"
-                    }`}>
-                    {StatusIcon}
-                </div>
+                        }`}>
+                        {StatusIcon}
+                    </div>
+                )}
             </div>
         </div>
     );

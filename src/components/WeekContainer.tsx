@@ -11,6 +11,7 @@ interface WeekContainerProps {
     onPreviousWeek?: () => void;
     onNextWeek?: () => void;
     canGoNext?: boolean;
+    currentDate?: Date;
 }
 
 const variants = {
@@ -30,7 +31,11 @@ const variants = {
     }),
 };
 
-export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = false }: WeekContainerProps) {
+import { startOfWeek, endOfWeek } from "date-fns";
+
+// ... Inside the file
+
+export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = false, currentDate = new Date() }: WeekContainerProps) {
     // We use this tuple to track the sliding direction [currentWeekIndex, direction]
     const [[page, direction], setPage] = useState([0, 0]);
 
@@ -40,14 +45,9 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
         if (newDirection < 0 && onPreviousWeek) onPreviousWeek();
     };
 
-    // Safe checks if empty data
-    if (!days || days.length === 0) {
-        return <div className="text-center py-10 opacity-50 font-medium">Bu haftaya ait veri bulunamadı.</div>;
-    }
-
-    const startDate = days[0].date;
-    const endDate = days[days.length - 1].date;
-    const dateRangeString = `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`;
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+    const dateRangeString = `${formatShortDate(weekStart.toISOString())} - ${formatShortDate(weekEnd.toISOString())}`;
 
     return (
         <div className="w-full relative overflow-hidden bg-white/50 backdrop-blur-md border md:border-2 border-primary/10 rounded-3xl p-4 md:p-8 shadow-sm">
@@ -71,8 +71,8 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
                     onClick={() => paginate(1)}
                     disabled={!canGoNext}
                     className={`p-3 md:p-4 rounded-full transition-colors ${canGoNext
-                            ? "bg-primary/10 hover:bg-primary/20 text-primary hover:scale-105"
-                            : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                        ? "bg-primary/10 hover:bg-primary/20 text-primary hover:scale-105"
+                        : "bg-gray-100 text-gray-300 cursor-not-allowed"
                         }`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
@@ -97,9 +97,13 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
                         }}
                         className="flex flex-col gap-4 absolute w-full"
                     >
-                        {days.map((day) => (
-                            <DayCard key={day.id || day.date} data={day} />
-                        ))}
+                        {(!days || days.length === 0) ? (
+                            <div className="text-center py-10 opacity-50 font-medium">Bu haftaya ait veri bulunamadı.</div>
+                        ) : (
+                            days.map((day) => (
+                                <DayCard key={day.id || day.date} data={day} />
+                            ))
+                        )}
                     </motion.div>
                 </AnimatePresence>
             </div>

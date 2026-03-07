@@ -92,6 +92,7 @@ export default function ClientPage() {
                             onPreviousWeek={handlePreviousWeek}
                             onNextWeek={handleNextWeek}
                             canGoNext={!isCurrentWeek}
+                            currentDate={currentDate}
                         />
 
                         {weekData.length > 0 && (

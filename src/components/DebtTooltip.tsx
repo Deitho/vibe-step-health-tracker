@@ -5,34 +5,39 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface DebtTooltipProps {
     debt: number;
+    children?: React.ReactNode;
 }
 
-export function DebtTooltip({ debt }: DebtTooltipProps) {
+export function DebtTooltip({ debt, children }: DebtTooltipProps) {
     const [isVisible, setIsVisible] = useState(false);
 
     return (
         <div
-            className="relative ml-2 inline-flex items-center"
+            className="relative inline-flex items-center"
             onMouseEnter={() => setIsVisible(true)}
             onMouseLeave={() => setIsVisible(false)}
             onClick={() => setIsVisible(!isVisible)}
         >
-            <div className="cursor-pointer text-warning bg-warning/10 p-1 rounded-full animate-pulse transition-colors hover:bg-warning/20">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="w-5 h-5"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                </svg>
-            </div>
+            {children ? (
+                <div className="cursor-pointer">{children}</div>
+            ) : (
+                <div className="cursor-pointer text-warning bg-warning/10 p-1 rounded-full animate-pulse transition-colors hover:bg-warning/20">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                    </svg>
+                </div>
+            )}
 
             <AnimatePresence>
                 {isVisible && (

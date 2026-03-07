@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
         let totalSteps = 0;
         let totalCalories = 0;
+        let totalActiveMinutes = 0;
         const timestamp = body.timestamp || new Date().toISOString();
 
         // Sum up the step counts for TODAY
@@ -48,6 +49,22 @@ export async function POST(request: Request) {
             totalCalories = body.active_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         } else if (Array.isArray(body.total_calories_burned)) {
             totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+        }
+
+        // Calculate active minutes from exercise_session if present
+        if (Array.isArray(body.exercise_session)) {
+            const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
+            const todaysSessions = body.exercise_session.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
+            const sessionsToCount = todaysSessions.length > 0 ? todaysSessions : body.exercise_session;
+
+            totalActiveMinutes = sessionsToCount.reduce((acc: number, session: any) => {
+                if (session.start_time && session.end_time) {
+                    const start = new Date(session.start_time).getTime();
+                    const end = new Date(session.end_time).getTime();
+                    return acc + Math.max(0, (end - start) / 60000);
+                }
+                return acc;
+            }, 0);
         }
 
         // As a fallback simulation, if we don't have calories but we have heart rate > 100 or huge steps
@@ -79,7 +96,10 @@ export async function POST(request: Request) {
             newCalories = existingRecord.calories + calories; // Or should we take max? The SOP says "toplanır" or "en güncel değer alınır". Let's assume the Webhook sends delta because the docs say "steps toplanır".
         }
 
-        const hasExercise = calculateHasExercise(newCalories);
+        // Provide exercise credit if the new payload has exercise, or if it was already achieved today.
+        const currentBatchHasExercise = calculateHasExercise(calories, totalActiveMinutes);
+        const hasExercise = existingRecord?.has_exercise || currentBatchHasExercise || calculateHasExercise(newCalories, 0);
+
         const targetSteps = calculateDailyTarget(hasExercise);
         const debt = calculateDebt(newSteps, targetSteps);
         let status = debt > 0 ? 'PENDING' : 'COMPLETED';

@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vibe-Step Health Tracker
 
-## Getting Started
+A gamified gamified step and activity tracking dashboard.
 
-First, run the development server:
+## 🚀 Setup & Vercel Deployment Guide
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Since you requested to configure this for real usage via Vercel, please follow these instructions carefully.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 1. Database Configuration (Vercel Postgres)
+Currently, the app relies on **Vercel Postgres** to store daily health data.
+1. Go to your [Vercel Dashboard](https://vercel.com/dashboard) and select this project.
+2. Navigate to the **Storage** tab.
+3. Click **Create Database**, select **Postgres**, and accept the terms.
+4. Once created, Vercel will automatically add the `POSTGRES_URL` to your project's Environment Variables.
+5. *Important*: After your database is provisioned, you'll need to initialize the tables. Go to your Vercel project's **Deployments** tab, find your latest deployment, and trigger a redeployment, or run the local setup script if you connect your local CLI. You can visit the `/api/weeks` endpoint in a browser to see if it responds without 500 errors.
+   - Alternatively, you can run `npm run setup-db` locally after pulling the `.env` via `npx vercel env pull .env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2. Environment Variables
+You need to add a secure webhook secret so your Android Health Connect app can securely post data.
+1. In your Vercel Project, go to **Settings** > **Environment Variables**.
+2. Add a new variable:
+   - **Key:** `WEBHOOK_SECRET`
+   - **Value:** *(Create a random secure string, e.g., `my_super_secret_health_key_123`)*
+3. **Save** the variable and redeploy your app to apply the newly added variables.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Android Health Connect Setup
+Your Android app needs to know where to send the health data intervals.
+1. Open your HC Webhook app settings.
+2. Set the **Webhook URL** to your Vercel domain + `/api/webhook`
+   - Example: `https://vibe-step-health-tracker.vercel.app/api/webhook`
+3. Set the **Auth/Secret Header** or Payload parameter to match your `WEBHOOK_SECRET` value. The Next.js API expects this secret in the `x-webhook-secret` header.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠 Features
+- **Debt Engine:** Uses a FIFO algorithm to calculate step debts if you miss goals, allowing you to pay them off on subsequent days.
+- **Dynamic Weekly View:** A sliding layout built with Framer Motion.
+- **Automated Webhooks:** Receives daily updates from the Health Connect Android app.

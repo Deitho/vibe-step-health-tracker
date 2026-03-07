@@ -1,0 +1,354 @@
+VIBE-STEP
+Health Connect Entegreli Adım & Antrenman Takip Sistemi
+Software Project Overview (SPO) — v1.0   |   Mart 2026
+1. Proje Özeti
+Vibe-Step; bir kullanıcının günlük adım sayısını ve spor aktivitelerini görsel olarak takip etmesini sağlayan, oyunlaştırılmış bir borç/alacak algoritmasına sahip, Single Page Application (SPA) mimarisiyle inşa edilmiş bir web uygulamasıdır.
+
+Hedef kullanıcı tarafından bakıldığında, her gün belirlenen adım ve spor kurallarının yerine getirilip getirilmediği haftalar bazında görüntülenebilmektedir. Eksik günlerin borçları sonraki günlerde otomatik olarak telafi edilir; hafta bittiğinde telafi edilemeyen günler kalıcı olarak "başarısız" olarak işaretlenir.
+
+Proje Adı
+Vibe-Step
+Proje Tipi
+Single Page Web Application (SPA)
+Hedef Platform
+Web (Masaüstü & Mobil Tarayıcı)
+Birincil Kullanıcı
+Spor ve sağlık rutinini takip etmek isteyen birey
+İkincil Kullanıcı
+Kişinin aktivitelerini anlık olarak izleyen üçüncü kişi (partneri vb.)
+Versiyon
+1.0
+Tarih
+Mart 2026
+
+2. Teknoloji Stack
+2.1 Frontend & Backend Çerçevesi
+Bileşen
+Detay
+Framework
+Next.js 14+ (App Router)
+Dil
+TypeScript
+Stil
+Tailwind CSS
+Animasyon
+Framer Motion (haftalar arası geçiş)
+State Yönetimi
+React Hook + Custom Hooks
+
+2.2 Veritabanı & Backend Servisleri
+Bileşen
+Detay
+Veritabanı
+Vercel Postgres (veya Supabase)
+API Katmanı
+Next.js API Routes / Serverless Functions
+Zamanlanmış Görev
+Vercel Cron (her Pazar 23:59 çalışır)
+Environment Yönetimi
+Vercel Environment Variables
+
+2.3 DevOps & Versiyon Kontrol
+Bileşen
+Detay
+Versiyon Kontrol
+GitHub
+CI/CD & Deployment
+Vercel (GitHub entegreli otomatik deploy)
+GitHub MCP
+Repo oluşturma, dosya push, PR yönetimi
+Vercel MCP
+Proje deploy, env var yönetimi, cron konfigürasyonu
+
+3. Sistem Mimarisi ve Veri Akışı
+3.1 Genel Mimari
+Uygulama üç katmandan oluşmaktadır:
+	•	Veri Kaynağı Katmanı: Android cihazdaki Health Connect → health-connect-webhook uygulaması
+	•	Backend Katmanı: Next.js API Route (/api/webhook) → Vercel Postgres
+	•	Sunum Katmanı: Next.js SPA → Kullanıcı tarayıcısı
+
+3.2 Health Connect Webhook Entegrasyonu
+Entegrasyon mcnaveen/health-connect-webhook açık kaynak projesi üzerinden sağlanır. Android uygulaması, Health Connect verilerini arka planda belirli aralıklarla uygulama içinde tanımlanan Webhook URL'ine HTTP POST isteği olarak iletir. Webhook URL olarak projenin Vercel deployment URL'indeki /api/webhook endpoint'i kullanılır.
+
+Uygulamanın gönderdiği JSON formatı şu şekildedir:
+
+Webhook POST Verisi (JSON)
+{
+  "steps": 4500,
+  "distance": 3.2,
+  "calories": 180,
+  "active_minutes": 25,
+  "timestamp": "2026-03-07T18:45:00Z"
+}
+
+Gelen her istek veritabanına timestamp alanından türetilen tarih (date) bazlı Upsert işlemiyle kaydedilir. Aynı güne ait sonraki istekler önceki kaydı günceller (steps toplanır, calories güncellenir).
+
+3.3 Veritabanı Şeması
+DailyStats tablosu aşağıdaki kolonlardan oluşur:
+Kolon
+Açıklama
+id
+UUID, Primary Key
+date
+DATE, Unique — günlük kayıt anahtarı (YYYY-MM-DD)
+steps
+INTEGER — o güne ait toplam adım sayısı
+calories
+INTEGER — o güne ait toplam yakılan kalori
+has_exercise
+BOOLEAN — calories ≥ 150 ise true, değilse false
+target_steps
+INTEGER — has_exercise'a göre hesaplanan hedef (8k veya 12k)
+debt_steps
+INTEGER — gün sonu itibarıyla eksik kalan adım borcu (0 ise borç yok)
+status
+ENUM: PENDING | COMPLETED | FAILED
+debt_source_date
+DATE[] — bu günün borcunun hangi kaynak günlere atandığını tutar
+created_at
+TIMESTAMP
+updated_at
+TIMESTAMP
+
+4. İş Mantığı ve Algoritmalar
+4.1 Günlük Hedef Belirleme
+Her gün için adım hedefi aşağıdaki kurala göre hesaplanır:
+	•	Eğer o gün has_exercise == true (calories ≥ 150 olan bir aktivite varsa) → hedef 8.000 adım
+	•	Eğer o gün has_exercise == false → hedef 12.000 adım
+
+Önemli Not: Günün hedefi bir önceki günün verisi baz alınarak kesinleşir. Gün içindeki dinamik güncelleme gerekmez; hesaplama bir önceki günün 23:59 itibarıyla tamamlanan kaydı üzerinden yapılır.
+
+4.2 Borç Oluşumu (Debt Creation)
+Her gece 23:59 itibarıyla o günün kaydı kesinleşir. Kesinleşme sonrası şu kontrol uygulanır:
+	•	Eğer steps < target_steps → debt_steps = target_steps - steps, status = PENDING
+	•	Eğer steps >= target_steps → debt_steps = 0, status = COMPLETED
+
+Borç kaydedilirken debt_source_date alanına o günün tarihi yazılır, böylece ileride borcun hangi güne ait olduğu takip edilebilir.
+
+4.3 Borç Eritme Algoritması (FIFO — First In, First Out)
+Bir gün kendi hedefini aşarsa (steps > target_steps), fazla adımlar geçmişteki borçlu günleri kapatmak için kullanılır:
+	•	Adım 1: extra_steps = steps - target_steps
+	•	Adım 2: Veritabanındaki en eski PENDING kayıttan başlanarak sırayla ilerlenir
+	•	Adım 3: extra_steps, mevcut günün debt_steps değerinden düşülür
+	•	Eğer extra_steps >= debt_steps → o günün borcu tamamen ödenir, status = COMPLETED, kalan fazla adım bir sonraki PENDING güne geçer
+	•	Eğer extra_steps < debt_steps → o günün debt_steps değeri güncellenir, fazla adımlar tükenir
+	•	Adım 4: Borcu kapanan her gün için status alanı PENDING'den COMPLETED'a güncellenir
+	•	Kural: Fazla adımlar geleceğe alacak olarak yazılamaz, yalnızca geçmiş borçları kapatır
+
+4.4 Haftalık Kurallar
+Hafta Tanımı
+Bir hafta Pazartesi (00:00) başlar ve Pazar (23:59) biter.
+
+Haftalık Spor Hedefi
+	•	Bir haftada en az 3 aktivite kaydının has_exercise == true olması gerekir
+	•	Bu 3 aktivite aynı günde bile girilebilir; haftalık toplam sayı baz alınır
+	•	Spor için gün bazlı borç yoktur; yalnızca toplam sayı kontrol edilir
+	•	3/3 tamamlandığında haftalık spor barı "Pass" durumuna geçer
+
+Pazar Günü Kapanış (Edge Case)
+	•	Hafta boyunca borcu ödenmemiş olan günler için Pazar 23:59'a kadar beklenir
+	•	Pazar 23:59 itibarıyla status = PENDING olan tüm günler kalıcı olarak status = FAILED olarak güncellenir
+	•	FAILED günlerin borcu yeni haftaya devretmez ve sonsuza dek kırmızı çarpı olarak görüntülenir
+	•	Bu güncelleme Vercel Cron tarafından her Pazar 23:59'da otomatik tetiklenir
+
+Haftanın Pass Sayılma Koşulları
+	•	O haftaya ait tüm günlerin status = COMPLETED (Yeşil Tik) olması
+	•	VE haftalık spor sayacının ≥ 3 olması
+
+5. UI/UX Spesifikasyonları
+5.1 Genel Tasarım Dili
+	•	Modern, temiz, kart tabanlı arayüz
+	•	Tailwind CSS ile responsive layout (masaüstü ve mobil uyumlu)
+	•	Framer Motion ile haftalık konteynerlar arasında yumuşak geçiş animasyonu
+
+5.2 Haftalık Konteyner
+	•	Her hafta ekranı kaplayan tam genişlikte bir kart (konteyner) olarak görüntülenir
+	•	Sağ ve sol ok butonları ile haftalar arasında geçiş yapılır
+	•	Konteynerin üst kısmında hafta tarihi aralığı gösterilir (örn: "3–9 Mart 2026")
+	•	Altında "Bu hafta yapılan spor: X/3" sayacı ve progress bar yer alır
+	•	Spor bar 3/3 tamamlandığında yeşil renge döner ve "Pass" ibaresi gösterilir
+	•	Konteynerin alt kısmında o haftanın genel pass/fail durumu özetlenir
+
+5.3 Gün Kartları
+Her günün kartı şu bileşenleri içerir: Gün adı ve tarih, atılan adım sayısı, hedef adım sayısı (+borç varsa borç miktarı), durum ikonu (yeşil tik / sarı ünlem / kırmızı çarpı).
+
+Durum
+Açıklama
+✅ Yeşil Tik
+Günün adım hedefi tamamlandı veya geçmiş borç tamamen ödendi.
+⚠️ Sarı Ünlem
+Adım hedefi eksik, hafta henüz bitmedi. Kart üzerinde "Mevcut Adım / (Hedef + Borç)" gösterilir.
+❌ Kırmızı Çarpı
+Hafta kapandı (Pazar 23:59), borç ödenmemiş günler kalıcı olarak bu statüye geçer. Borç yeni haftaya devretmez.
+
+Sarı Ünlem durumundaki bir güne tıklandığında, "Ödenmesi gereken borç: X adım" detayını gösteren bir popup veya tooltip görüntülenir.
+
+5.4 Component Yapısı (Öneri)
+Component
+Açıklama
+WeekContainer
+Haftalık görünüm wrapper'ı, navigasyon ok butonları, hafta bazlı durum özeti
+SportProgressBar
+Haftalık spor sayacı (X/3), pass animasyonu
+DayCard
+Gün kartı, durum ikonu, adım/hedef bilgisi
+DebtTooltip
+Sarı günlere tıklandığında borç detayını gösterir
+WeekSummary
+Haftanın genel pass/fail durumunu özetleyen alt banner
+
+6. API Endpoint Spesifikasyonları
+6.1 POST /api/webhook
+Health Connect uygulamasından gelen ham veriyi karşılar ve işler.
+Alan
+Detay
+Method
+POST
+Auth
+Shared secret token (header: x-webhook-secret)
+Gelen Body
+{ steps, distance, calories, active_minutes, timestamp }
+İşlem
+timestamp'ten date türetilir, calories >= 150 ise has_exercise = true, Upsert yapılır
+Dönen Response
+{ success: true, date: "YYYY-MM-DD", status: "upserted" }
+
+6.2 GET /api/weeks
+Haftalık verileri ve borç hesaplamalarını döner.
+Alan
+Detay
+Method
+GET
+Query Params
+?year=2026&week=10 (opsiyonel, varsayılan: mevcut hafta)
+Dönen Response
+DailyStats[] dizisi, haftalık spor sayısı, haftalık pass durumu
+
+6.3 POST /api/cron/close-week
+Her Pazar 23:59'da Vercel Cron tarafından tetiklenir. O haftanın tüm PENDING günlerini FAILED olarak günceller.
+Alan
+Detay
+Tetikleyen
+Vercel Cron (schedule: '59 23 * * 0')
+Auth
+CRON_SECRET environment variable
+İşlem
+status = PENDING ve tarihi geçmiş haftaya ait tüm kayıtları FAILED yap
+
+7. Örnek Test Senaryosu
+7.1 FIFO Borç Eritme Senaryosu
+Aşağıdaki tablo, Pazartesi ve Salı günleri eksik adım atılmış, Çarşamba günü ise fazla adım atılmış bir haftayı göstermektedir:
+
+Gün
+Spor
+Hedef
+Atılan
+Borç
+FIFO Sonrası
+Durum
+Pazartesi
+Hayır
+12.000
+10.000
+2.000
+—
+⚠️ Sarı
+Salı
+Evet
+8.000
+7.000
+1.000
+—
+⚠️ Sarı
+Çarşamba
+Evet
+8.000
+12.000
++4.000 fazla
+Paz 2k ödendi, Sal 1k ödendi (1k artar)
+✅ Yeşil
+Pazartesi (güncel)
+—
+—
+—
+0 (ödendi)
+✅ Yeşil'e döndü
+✅ Yeşil
+Salı (güncel)
+—
+—
+—
+0 (ödendi)
+✅ Yeşil'e döndü
+✅ Yeşil
+
+Sonuç: Çarşamba'nın 4.000 fazla adımı, Pazartesi'nin 2.000 adım borcunu ve Salı'nın 1.000 adım borcunu tamamen kapatmış, geriye 1.000 adım fazlası kalmıştır. Bu fazla adım ileri haftalara alacak olarak yazılmaz.
+
+8. Deployment ve MCP Konfigürasyonu
+8.1 GitHub MCP Adımları
+	•	Yeni bir GitHub repo oluştur (örn: vibe-step)
+	•	Next.js App Router yapısını oluştur ve ilk commit'i push et
+	•	Branch stratejisi: main (production), develop (staging)
+	•	PR ve commit mesajı standartlarını .github/pull_request_template.md ile tanımla
+
+8.2 Vercel MCP Adımları
+	•	GitHub reposunu Vercel projesine bağla
+	•	Environment variable'ları ayarla: DATABASE_URL, CRON_SECRET, WEBHOOK_SECRET
+	•	Vercel Cron Job'ı konfigüre et: her Pazar 23:59 → /api/cron/close-week
+	•	Production deploy URL'ini Android health-connect-webhook uygulamasına tanımla: https://vibe-step.vercel.app/api/webhook
+
+8.3 Ortam Değişkenleri (Environment Variables)
+Değişken
+Açıklama
+DATABASE_URL
+Vercel Postgres bağlantı dizgisi
+WEBHOOK_SECRET
+Android uygulamasıyla paylaşılan gizli anahtar
+CRON_SECRET
+Vercel Cron'un /api/cron/close-week'i çağırması için güvenlik anahtarı
+NEXT_PUBLIC_APP_NAME
+Uygulama adı (Vibe-Step)
+
+9. AI Geliştirici Talimatı (Vibe-Coding Prompt)
+Aşağıdaki metin Antigravity veya benzeri bir vibe-coding aracına kopyalanabilir:
+
+Yapıştırılabilir Vibe-Coding Prompt
+Next.js 14+ App Router ve TypeScript kullanarak bir sağlık takip uygulaması (Vibe-Step) yap.
+
+mcnaveen/health-connect-webhook Android uygulamasından gelen POST isteklerini
+/api/webhook rotasında yakala. Gelen veride calories >= 150 ise o günün hedefi
+8.000 adım, değilse 12.000 adım olsun.
+
+Eksik adımları geçmişe dönük borç olarak kaydet. Bir günün hedefi aşıldığında
+fazla adımları en eski borçlu günden başlayarak FIFO sırasıyla öde.
+Borcu kapanan günlerin status'unu PENDING'den COMPLETED'a güncelle.
+
+Her Pazar 23:59'da Vercel Cron ile haftayı kapat: o haftanın PENDING günlerini
+FAILED olarak işaretle.
+
+Haftalık UI: Framer Motion ile haftalar arası geçiş yapan yatay konteynerlar.
+Her günü kart olarak göster: ✅ COMPLETED, ⚠️ PENDING (adım/hedef+borç), ❌ FAILED.
+Her haftada spor sayacı (X/3) progress bar göster.
+
+Veritabanı: Vercel Postgres. Tüm iş mantığını utils/debt-engine.ts'de saf fonksiyon
+olarak yaz. GitHub MCP ile repoyu oluştur, Vercel MCP ile deploy et.
+
+10. Edge Case Özeti
+Senaryo
+Davranış
+Pazar günü adım eksiği
+O hafta kapanır, tüm PENDING günler FAILED olur. Sonraki haftaya borç devretmez.
+Borç ödeme sırası
+FIFO — en eski tarihli PENDING günden başlanarak ödeme yapılır.
+Aynı gün birden fazla webhook
+Upsert ile güncellenir; steps toplanabilir veya en güncel değer alınır.
+Henüz bitmemiş bugün
+Status kesinleşmez; gece 23:59 sonrası Cron veya API call ile kapanır.
+3 spor aynı gün girilebilir mi?
+Evet, haftalık toplam has_exercise == true olan kayıt sayısı baz alınır.
+Fazla adımlar ileriye alacak yazılır mı?
+Hayır, yalnızca geçmiş PENDING borçları kapatır.
+Haftanın pass sayılması
+Tüm günler COMPLETED VE haftalık spor sayısı >= 3 olmalıdır.
+
+Vibe-Step SPO v1.0 — Tüm teknik detaylar Antigravity/Vibe-coding aracına doğrudan verilebilir niteliktedir.

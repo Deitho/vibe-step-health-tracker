@@ -7,7 +7,7 @@ interface WeekSummaryProps {
 export function WeekSummary({ isPassed, exerciseCount, allDaysCompleted }: WeekSummaryProps) {
     return (
         <div className={`
-      mt-6 p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm
+      p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm
       ${isPassed
                 ? "bg-success/10 border-success/30"
                 : "bg-card border-card-border"}

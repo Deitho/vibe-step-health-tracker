@@ -64,7 +64,7 @@ export function DayCard({ data }: DayCardProps) {
 
                     {/* Has Exercise badge (smaller for mobile) */}
                     {has_exercise && (
-                        <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded-full w-max mt-0.5 md:mt-0">
+                        <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded-full w-max md:mt-0">
                             <span>🏃</span> Spor
                         </span>
                     )}
@@ -77,10 +77,10 @@ export function DayCard({ data }: DayCardProps) {
                             <span className="text-base md:text-xl font-black text-foreground">{steps.toLocaleString("tr-TR")}</span>
                             <span className="text-[10px] font-bold text-foreground/40 hidden md:inline">/ {target_steps.toLocaleString("tr-TR")}</span>
                         </div>
-                        <span className="text-[8px] md:text-[9px] font-bold uppercase text-foreground/50 tracking-widest mt-0.5 inline md:hidden">
+                        <span className="text-[9px] md:text-[9px] font-bold uppercase text-foreground/50 inline md:hidden">
                             / {target_steps.toLocaleString("tr-TR")} ADIM
                         </span>
-                        <span className="text-[8px] md:text-[9px] font-bold uppercase text-foreground/50 tracking-widest mt-0.5 hidden md:inline">
+                        <span className="text-[9px] md:text-[9px] font-bold uppercase text-foreground/50 hidden md:inline">
                             ADIM
                         </span>
                     </div>

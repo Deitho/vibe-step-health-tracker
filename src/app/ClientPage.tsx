@@ -61,12 +61,13 @@ export default function ClientPage() {
             <div className="max-w-5xl mx-auto flex flex-col items-center">
 
                 {/* Header Title */}
-                <div className="text-center mb-10">
+                <div className="text-center mb-4">
                     <h1 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic drop-shadow-sm">
-                        Vibe<span className="text-cta">-Step</span>
+                        ASİSTAN
+                        <span className="text-cta"> &lt;3 HANIM</span>
                     </h1>
                     <p className="text-foreground/70 font-medium mt-2 tracking-wide uppercase text-sm">
-                        Adım & Antrenman Takibi
+                        Doktor Bey'in Spor Günlüğü
                     </p>
                 </div>
 

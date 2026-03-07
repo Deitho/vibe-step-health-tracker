@@ -15,7 +15,7 @@ export function SportProgressBar({ current, total }: SportProgressBarProps) {
         <div className="w-full flex-col flex items-center mb-6">
             <div className="flex justify-between w-full max-w-md mb-2 items-end">
                 <span className="text-foreground/70 font-semibold text-xs md:text-sm tracking-wider uppercase">
-                    BU HAFTAKİ SPOR
+                    BU HAFTAKİ SPOR SAYISI
                 </span>
                 <span
                     className={`font-bold text-lg ${isPassed ? "text-success" : "text-primary"

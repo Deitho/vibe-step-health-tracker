@@ -28,9 +28,12 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
+        console.log('Received Webhook Body:', JSON.stringify(body, null, 2));
+
         const { steps, distance, calories, active_minutes, timestamp } = body;
 
         if (steps == null || calories == null || !timestamp) {
+            console.error('Missing required fields. Received steps:', steps, 'calories:', calories, 'timestamp:', timestamp);
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 

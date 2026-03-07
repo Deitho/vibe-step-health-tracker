@@ -34,10 +34,36 @@ export async function POST(request: Request) {
         let totalActiveMinutes = 0;
         const timestamp = body.timestamp || new Date().toISOString();
 
+        // Helper to format any date to Turkey's YYYY-MM-DD
+        const getTurkeyDateString = (dateInput: string | Date | number) => {
+            try {
+                const d = new Date(dateInput);
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                const parts = formatter.formatToParts(d);
+                const year = parts.find(p => p.type === 'year')?.value;
+                const month = parts.find(p => p.type === 'month')?.value;
+                const day = parts.find(p => p.type === 'day')?.value;
+                if (year && month && day) return `${year}-${month}-${day}`;
+                return new Date().toISOString().split('T')[0];
+            } catch (e) {
+                return new Date().toISOString().split('T')[0];
+            }
+        };
+
+        const targetDateStr = getTurkeyDateString(timestamp);
+
         // Sum up the step counts for TODAY
         if (Array.isArray(body.steps)) {
-            const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
-            const todaysSteps = body.steps.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
+            const todaysSteps = body.steps.filter((s: any) => {
+                const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                return startStr === targetDateStr || endStr === targetDateStr;
+            });
 
             // If the filter found today's steps, use them, otherwise fallback to all steps if no dates exist
             const stepsToCount = todaysSteps.length > 0 ? todaysSteps : body.steps;
@@ -56,8 +82,11 @@ export async function POST(request: Request) {
         // Calculate active minutes from exercise or exercise_session if present
         const exerciseArray = body.exercise || body.exercise_session;
         if (Array.isArray(exerciseArray)) {
-            const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
-            const todaysSessions = exerciseArray.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
+            const todaysSessions = exerciseArray.filter((s: any) => {
+                const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                return startStr === targetDateStr || endStr === targetDateStr;
+            });
             const sessionsToCount = todaysSessions.length > 0 ? todaysSessions : exerciseArray;
 
             totalActiveMinutes = sessionsToCount.reduce((acc: number, session: any) => {
@@ -82,7 +111,7 @@ export async function POST(request: Request) {
         const steps = totalSteps;
         const calories = totalCalories;
 
-        const dateStr = format(new Date(timestamp), 'yyyy-MM-dd');
+        const dateStr = targetDateStr;
 
         // 1. Fetch existing record for today (if any)
         const { rows: existingRows } = await sql`SELECT * FROM daily_stats WHERE date = ${dateStr} LIMIT 1`;

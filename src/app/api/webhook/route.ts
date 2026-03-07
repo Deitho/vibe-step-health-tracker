@@ -28,14 +28,39 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        console.log('Received Webhook Body:', JSON.stringify(body, null, 2));
 
-        const { steps, distance, calories, active_minutes, timestamp } = body;
+        let totalSteps = 0;
+        let totalCalories = 0;
+        const timestamp = body.timestamp || new Date().toISOString();
 
-        if (steps == null || calories == null || !timestamp) {
-            console.error('Missing required fields. Received steps:', steps, 'calories:', calories, 'timestamp:', timestamp);
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        // Sum up the step counts for TODAY
+        if (Array.isArray(body.steps)) {
+            const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
+            const todaysSteps = body.steps.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
+
+            // If the filter found today's steps, use them, otherwise fallback to all steps if no dates exist
+            const stepsToCount = todaysSteps.length > 0 ? todaysSteps : body.steps;
+            totalSteps = stepsToCount.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
         }
+
+        // Sum up calories if present (HC webhook might send 'active_calories_burned' or 'total_calories_burned')
+        if (Array.isArray(body.active_calories_burned)) {
+            totalCalories = body.active_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+        } else if (Array.isArray(body.total_calories_burned)) {
+            totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+        }
+
+        // As a fallback simulation, if we don't have calories but we have heart rate > 100 or huge steps
+        if (totalCalories === 0 && totalSteps > 5000) {
+            totalCalories = Math.floor(totalSteps * 0.04);
+        }
+
+        if (totalSteps === 0 && (!body.steps || body.steps.length === 0)) {
+            return NextResponse.json({ error: 'Missing step data' }, { status: 400 });
+        }
+
+        const steps = totalSteps;
+        const calories = totalCalories;
 
         const dateStr = format(new Date(timestamp), 'yyyy-MM-dd');
 

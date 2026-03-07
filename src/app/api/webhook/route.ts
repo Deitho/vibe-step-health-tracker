@@ -29,10 +29,9 @@ export async function POST(request: Request) {
 
         const body = await request.json();
 
-        let totalSteps = 0;
-        let totalCalories = 0;
-        let totalActiveMinutes = 0;
-        const timestamp = body.timestamp || new Date().toISOString();
+        let minTime = Infinity;
+        let maxTime = -Infinity;
+        const allDates = new Set<string>();
 
         // Helper to format any date to Turkey's YYYY-MM-DD
         const getTurkeyDateString = (dateInput: string | Date | number) => {
@@ -55,153 +54,190 @@ export async function POST(request: Request) {
             }
         };
 
-        const targetDateStr = getTurkeyDateString(timestamp);
-
-        // Sum up the step counts for TODAY
-        if (Array.isArray(body.steps)) {
-            const todaysSteps = body.steps.filter((s: any) => {
-                if (!s.start_time && !s.end_time) return false;
-                const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                return startStr === targetDateStr || endStr === targetDateStr;
-            });
-
-            // If payload has dates, but none for today -> 0 steps.
-            // If payload has NO dates anywhere, fallback to summing all (legacy fallback).
-            const hasAnyDates = body.steps.some((s: any) => s.start_time || s.end_time);
-            const stepsToCount = hasAnyDates ? todaysSteps : body.steps;
-
-            // Sum the counts
-            totalSteps = stepsToCount.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
-        }
-
-        // Sum up calories if present
-        if (Array.isArray(body.active_calories_burned)) {
-            totalCalories = body.active_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
-        } else if (Array.isArray(body.total_calories_burned)) {
-            totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
-        }
-
-        // Calculate active minutes from exercise or exercise_session if present
-        const exerciseArray = body.exercise || body.exercise_session;
-        if (Array.isArray(exerciseArray)) {
-            const todaysSessions = exerciseArray.filter((s: any) => {
-                if (!s.start_time && !s.end_time) return false;
-                const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                return startStr === targetDateStr || endStr === targetDateStr;
-            });
-            const hasAnyDates = exerciseArray.some((s: any) => s.start_time || s.end_time);
-            const sessionsToCount = hasAnyDates ? todaysSessions : exerciseArray;
-
-            totalActiveMinutes = sessionsToCount.reduce((acc: number, session: any) => {
-                if (session.start_time && session.end_time) {
-                    const start = new Date(session.start_time).getTime();
-                    const end = new Date(session.end_time).getTime();
-                    return acc + Math.max(0, (end - start) / 60000);
-                }
-                return acc;
-            }, 0);
-        }
-
-        // As a fallback simulation, if we don't have calories but we have heart rate > 100 or huge steps
-        if (totalCalories === 0 && totalSteps > 5000) {
-            totalCalories = Math.floor(totalSteps * 0.04);
-        }
-
-        if (!body.steps && !body.exercise && !body.exercise_session && !body.active_calories_burned && !body.total_calories_burned) {
-            return NextResponse.json({ success: true, message: 'No health data arrays found in payload' }, { status: 200 });
-        }
-
-        const steps = totalSteps;
-        const calories = totalCalories;
-
-        const dateStr = targetDateStr;
-
-        // 1. Fetch existing record for today (if any)
-        const { rows: existingRows } = await sql`SELECT * FROM daily_stats WHERE date = ${dateStr} LIMIT 1`;
-        let existingRecord = existingRows[0];
-
-        // OVERWRITE the database with the fresh values from the webhook.
-        // If the arrays were present but empty/0, we trust that the user deleted the activities and overwrite with 0.
-        let newSteps = Array.isArray(body.steps) ? steps : (existingRecord?.steps || 0);
-        let newCalories = (Array.isArray(body.active_calories_burned) || Array.isArray(body.total_calories_burned)) ? calories : (existingRecord?.calories || 0);
-
-        // Provide exercise credit if the new payload has exercise, or if it was already achieved today.
-        const currentBatchHasExercise = calculateHasExercise(newCalories, totalActiveMinutes);
-        let hasExercise = existingRecord?.has_exercise || false;
-        if (Array.isArray(exerciseArray)) {
-            // Overwrite cleanly if the exercise array was provided
-            hasExercise = currentBatchHasExercise;
-        } else {
-            hasExercise = hasExercise || currentBatchHasExercise;
-        }
-
-        const targetSteps = calculateDailyTarget(hasExercise);
-        const debt = calculateDebt(newSteps, targetSteps);
-        let status = debt > 0 ? 'PENDING' : 'COMPLETED';
-
-        const currentStats: DailyStats = {
-            id: existingRecord?.id || '',
-            date: dateStr,
-            steps: newSteps,
-            calories: newCalories,
-            has_exercise: hasExercise,
-            target_steps: targetSteps,
-            debt_steps: debt,
-            status: status as any,
-            debt_source_date: debt > 0 ? [dateStr] : [],
-            created_at: new Date(),
-            updated_at: new Date(),
+        const processDate = (val: any) => {
+            if (!val) return;
+            const t = new Date(val).getTime();
+            if (isNaN(t)) return;
+            if (t < minTime) minTime = t;
+            if (t > maxTime) maxTime = t;
+            allDates.add(getTurkeyDateString(val));
         };
 
-        // 2. Fetch PENDING past days to clear debts if we exceeded target
-        if (newSteps > targetSteps) {
-            const { rows: pendingDays } = await sql`
-        SELECT * FROM daily_stats 
-        WHERE status = 'PENDING' AND date < ${dateStr}
-        ORDER BY date ASC
-      `;
+        const extractFromArr = (arr: any[]) => {
+            if (!Array.isArray(arr)) return;
+            arr.forEach(item => {
+                processDate(item.start_time);
+                processDate(item.end_time);
+            });
+        };
 
-            if (pendingDays.length > 0) {
-                const resolution = resolveDebt(currentStats, pendingDays as DailyStats[]);
+        extractFromArr(body.steps);
+        extractFromArr(body.distance);
+        extractFromArr(body.active_calories_burned);
+        extractFromArr(body.total_calories_burned);
+        extractFromArr(body.exercise);
+        extractFromArr(body.exercise_session);
 
-                // Update currentStats
-                currentStats.debt_steps = resolution.updatedCurrentStats.debt_steps;
-                currentStats.status = resolution.updatedCurrentStats.status;
+        const timestamp = body.timestamp || new Date().toISOString();
+        if (allDates.size === 0) {
+            processDate(timestamp);
+        }
 
-                // Persist the updated pending days
-                for (const pd of resolution.updatedPendingDays) {
-                    await sql`
-            UPDATE daily_stats 
-            SET debt_steps = ${pd.debt_steps}, status = ${pd.status}, updated_at = NOW()
-            WHERE id = ${pd.id}
-          `;
-                }
+        // Fill date gaps between minTime and maxTime to ensure empty (deleted) days get overwritten with 0
+        if (minTime !== Infinity && maxTime !== -Infinity) {
+            let curr = minTime;
+            while (curr <= maxTime) {
+                allDates.add(getTurkeyDateString(curr));
+                curr += 24 * 60 * 60 * 1000;
             }
         }
 
-        // 3. Upsert current day
-        await sql`
-      INSERT INTO daily_stats (
-        date, steps, calories, has_exercise, target_steps, debt_steps, status, debt_source_date, updated_at
-      ) VALUES (
-        ${currentStats.date}, ${currentStats.steps}, ${currentStats.calories}, 
-        ${currentStats.has_exercise}, ${currentStats.target_steps}, ${currentStats.debt_steps}, 
-        ${currentStats.status}, ARRAY[${currentStats.date}]::date[], NOW()
-      )
-      ON CONFLICT (date) DO UPDATE SET
-        steps = EXCLUDED.steps,
-        calories = EXCLUDED.calories,
-        has_exercise = EXCLUDED.has_exercise,
-        target_steps = EXCLUDED.target_steps,
-        debt_steps = EXCLUDED.debt_steps,
-        status = EXCLUDED.status,
-        debt_source_date = EXCLUDED.debt_source_date,
-        updated_at = NOW()
-    `;
+        const sortedDates = Array.from(allDates).sort();
 
-        return NextResponse.json({ success: true, date: dateStr, status: 'upserted', data: currentStats });
+        if (sortedDates.length === 0) {
+            return NextResponse.json({ success: true, message: 'No valid dates found in payload' }, { status: 200 });
+        }
+
+        const results = [];
+
+        // Sequentially process each date
+        for (const dateStr of sortedDates) {
+            let totalSteps = 0;
+            let totalCalories = 0;
+            let totalActiveMinutes = 0;
+
+            // Steps
+            if (Array.isArray(body.steps)) {
+                const dSteps = body.steps.filter((s: any) => {
+                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                    return startStr === dateStr || endStr === dateStr;
+                });
+                totalSteps = dSteps.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
+            }
+
+            // Calories
+            if (Array.isArray(body.active_calories_burned)) {
+                const dCals = body.active_calories_burned.filter((s: any) => {
+                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                    return startStr === dateStr || endStr === dateStr;
+                });
+                totalCalories = dCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            } else if (Array.isArray(body.total_calories_burned)) {
+                const dCals = body.total_calories_burned.filter((s: any) => {
+                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                    return startStr === dateStr || endStr === dateStr;
+                });
+                totalCalories = dCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            }
+
+            // Exercise
+            const exerciseArray = body.exercise || body.exercise_session;
+            if (Array.isArray(exerciseArray)) {
+                const dSessions = exerciseArray.filter((s: any) => {
+                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
+                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
+                    return startStr === dateStr || endStr === dateStr;
+                });
+                totalActiveMinutes = dSessions.reduce((acc: number, session: any) => {
+                    if (session.start_time && session.end_time) {
+                        const start = new Date(session.start_time).getTime();
+                        const end = new Date(session.end_time).getTime();
+                        return acc + Math.max(0, (end - start) / 60000);
+                    }
+                    return acc;
+                }, 0);
+            }
+
+            // Fallback simulation
+            if (totalCalories === 0 && totalSteps > 5000) {
+                totalCalories = Math.floor(totalSteps * 0.04);
+            }
+
+            // Fetch existing
+            const { rows: existingRows } = await sql`SELECT * FROM daily_stats WHERE date = ${dateStr} LIMIT 1`;
+            const existingRecord = existingRows[0];
+
+            // Overwrite cleanly based on what arrays were provided. If an array cover this date range is given but with 0 matches for this specific date, it correctly sets 0.
+            let newSteps = Array.isArray(body.steps) ? totalSteps : (existingRecord?.steps || 0);
+            let newCalories = (Array.isArray(body.active_calories_burned) || Array.isArray(body.total_calories_burned)) ? totalCalories : (existingRecord?.calories || 0);
+
+            const currentBatchHasExercise = calculateHasExercise(newCalories, totalActiveMinutes);
+            let hasExercise = existingRecord?.has_exercise || false;
+            if (Array.isArray(exerciseArray)) {
+                hasExercise = currentBatchHasExercise;
+            } else {
+                hasExercise = hasExercise || currentBatchHasExercise;
+            }
+
+            const targetSteps = calculateDailyTarget(hasExercise);
+            const debt = calculateDebt(newSteps, targetSteps);
+            let status = debt > 0 ? 'PENDING' : 'COMPLETED';
+
+            const currentStats: DailyStats = {
+                id: existingRecord?.id || '',
+                date: dateStr,
+                steps: newSteps,
+                calories: newCalories,
+                has_exercise: hasExercise,
+                target_steps: targetSteps,
+                debt_steps: debt,
+                status: status as any,
+                debt_source_date: debt > 0 ? [dateStr] : [],
+                created_at: new Date(),
+                updated_at: new Date(),
+            };
+
+            // Process existing debts prior to this date
+            if (newSteps > targetSteps) {
+                const { rows: pendingDays } = await sql`
+                    SELECT * FROM daily_stats 
+                    WHERE status = 'PENDING' AND date < ${dateStr}
+                    ORDER BY date ASC
+                `;
+
+                if (pendingDays.length > 0) {
+                    const resolution = resolveDebt(currentStats, pendingDays as DailyStats[]);
+
+                    currentStats.debt_steps = resolution.updatedCurrentStats.debt_steps;
+                    currentStats.status = resolution.updatedCurrentStats.status;
+
+                    for (const pd of resolution.updatedPendingDays) {
+                        await sql`
+                            UPDATE daily_stats 
+                            SET debt_steps = ${pd.debt_steps}, status = ${pd.status}, updated_at = NOW()
+                            WHERE id = ${pd.id}
+                        `;
+                    }
+                }
+            }
+
+            // Upsert
+            await sql`
+                INSERT INTO daily_stats (
+                    date, steps, calories, has_exercise, target_steps, debt_steps, status, debt_source_date, updated_at
+                ) VALUES (
+                    ${currentStats.date}, ${currentStats.steps}, ${currentStats.calories}, 
+                    ${currentStats.has_exercise}, ${currentStats.target_steps}, ${currentStats.debt_steps}, 
+                    ${currentStats.status}, ARRAY[${currentStats.date}]::date[], NOW()
+                )
+                ON CONFLICT (date) DO UPDATE SET
+                    steps = EXCLUDED.steps,
+                    calories = EXCLUDED.calories,
+                    has_exercise = EXCLUDED.has_exercise,
+                    target_steps = EXCLUDED.target_steps,
+                    debt_steps = EXCLUDED.debt_steps,
+                    status = EXCLUDED.status,
+                    debt_source_date = EXCLUDED.debt_source_date,
+                    updated_at = NOW()
+            `;
+
+            results.push(currentStats);
+        }
+
+        return NextResponse.json({ success: true, processed_dates: sortedDates.length, dates: sortedDates, data_preview: results.length > 0 ? results[results.length - 1] : null });
     } catch (error) {
         console.error('Webhook error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

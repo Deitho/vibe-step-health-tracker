@@ -34,21 +34,23 @@ export async function POST(request: Request) {
         let totalActiveMinutes = 0;
         const timestamp = body.timestamp || new Date().toISOString();
 
-        // Sum up the step counts for TODAY
+        // Extract the MAX step count for TODAY (since the webhook sends cumulative overlapping blocks)
         if (Array.isArray(body.steps)) {
             const todayStr = format(new Date(timestamp), 'yyyy-MM-dd');
             const todaysSteps = body.steps.filter((s: any) => s.end_time?.startsWith(todayStr) || s.start_time?.startsWith(todayStr));
 
             // If the filter found today's steps, use them, otherwise fallback to all steps if no dates exist
             const stepsToCount = todaysSteps.length > 0 ? todaysSteps : body.steps;
-            totalSteps = stepsToCount.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
+
+            // Extract the max count instead of summing, because HC sends cumulative blocks bridging multiple days/hours
+            totalSteps = stepsToCount.reduce((max: number, stepObj: any) => Math.max(max, stepObj.count || 0), 0);
         }
 
-        // Sum up calories if present (HC webhook might send 'active_calories_burned' or 'total_calories_burned')
+        // Extract MAX calories if present (HC webhook sends cumulative blocks)
         if (Array.isArray(body.active_calories_burned)) {
-            totalCalories = body.active_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            totalCalories = body.active_calories_burned.reduce((max: number, calObj: any) => Math.max(max, calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         } else if (Array.isArray(body.total_calories_burned)) {
-            totalCalories = body.total_calories_burned.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+            totalCalories = body.total_calories_burned.reduce((max: number, calObj: any) => Math.max(max, calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
         }
 
         // Calculate active minutes from exercise or exercise_session if present

@@ -60,15 +60,18 @@ export async function POST(request: Request) {
         // Sum up the step counts for TODAY
         if (Array.isArray(body.steps)) {
             const todaysSteps = body.steps.filter((s: any) => {
+                if (!s.start_time && !s.end_time) return false;
                 const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
                 const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
                 return startStr === targetDateStr || endStr === targetDateStr;
             });
 
-            // If the filter found today's steps, use them, otherwise fallback to all steps if no dates exist
-            const stepsToCount = todaysSteps.length > 0 ? todaysSteps : body.steps;
+            // If payload has dates, but none for today -> 0 steps.
+            // If payload has NO dates anywhere, fallback to summing all (legacy fallback).
+            const hasAnyDates = body.steps.some((s: any) => s.start_time || s.end_time);
+            const stepsToCount = hasAnyDates ? todaysSteps : body.steps;
 
-            // Sum the counts (HC Webhook payload sends distinct time blocks, not cumulative duplicates)
+            // Sum the counts
             totalSteps = stepsToCount.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
         }
 
@@ -83,11 +86,13 @@ export async function POST(request: Request) {
         const exerciseArray = body.exercise || body.exercise_session;
         if (Array.isArray(exerciseArray)) {
             const todaysSessions = exerciseArray.filter((s: any) => {
+                if (!s.start_time && !s.end_time) return false;
                 const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
                 const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
                 return startStr === targetDateStr || endStr === targetDateStr;
             });
-            const sessionsToCount = todaysSessions.length > 0 ? todaysSessions : exerciseArray;
+            const hasAnyDates = exerciseArray.some((s: any) => s.start_time || s.end_time);
+            const sessionsToCount = hasAnyDates ? todaysSessions : exerciseArray;
 
             totalActiveMinutes = sessionsToCount.reduce((acc: number, session: any) => {
                 if (session.start_time && session.end_time) {
@@ -104,8 +109,8 @@ export async function POST(request: Request) {
             totalCalories = Math.floor(totalSteps * 0.04);
         }
 
-        if (totalSteps === 0 && (!body.steps || body.steps.length === 0)) {
-            return NextResponse.json({ error: 'Missing step data' }, { status: 400 });
+        if (!body.steps && !body.exercise && !body.exercise_session && !body.active_calories_burned && !body.total_calories_burned) {
+            return NextResponse.json({ success: true, message: 'No health data arrays found in payload' }, { status: 200 });
         }
 
         const steps = totalSteps;
@@ -118,13 +123,19 @@ export async function POST(request: Request) {
         let existingRecord = existingRows[0];
 
         // OVERWRITE the database with the fresh values from the webhook.
-        // If the webhook somehow sends 0 (e.g. lack of permissions), we safely keep the existing count.
-        let newSteps = steps > 0 ? steps : (existingRecord?.steps || 0);
-        let newCalories = calories > 0 ? calories : (existingRecord?.calories || 0);
+        // If the arrays were present but empty/0, we trust that the user deleted the activities and overwrite with 0.
+        let newSteps = Array.isArray(body.steps) ? steps : (existingRecord?.steps || 0);
+        let newCalories = (Array.isArray(body.active_calories_burned) || Array.isArray(body.total_calories_burned)) ? calories : (existingRecord?.calories || 0);
 
         // Provide exercise credit if the new payload has exercise, or if it was already achieved today.
-        const currentBatchHasExercise = calculateHasExercise(calories, totalActiveMinutes);
-        const hasExercise = existingRecord?.has_exercise || currentBatchHasExercise || calculateHasExercise(newCalories, 0);
+        const currentBatchHasExercise = calculateHasExercise(newCalories, totalActiveMinutes);
+        let hasExercise = existingRecord?.has_exercise || false;
+        if (Array.isArray(exerciseArray)) {
+            // Overwrite cleanly if the exercise array was provided
+            hasExercise = currentBatchHasExercise;
+        } else {
+            hasExercise = hasExercise || currentBatchHasExercise;
+        }
 
         const targetSteps = calculateDailyTarget(hasExercise);
         const debt = calculateDebt(newSteps, targetSteps);

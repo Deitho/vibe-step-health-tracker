@@ -109,9 +109,8 @@ export async function POST(request: Request) {
             // Steps
             if (Array.isArray(body.steps)) {
                 const dSteps = body.steps.filter((s: any) => {
-                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                    return startStr === dateStr || endStr === dateStr;
+                    const matchStr = s.start_time ? getTurkeyDateString(s.start_time) : (s.end_time ? getTurkeyDateString(s.end_time) : null);
+                    return matchStr === dateStr;
                 });
                 totalSteps = dSteps.reduce((acc: number, stepObj: any) => acc + (stepObj.count || 0), 0);
             }
@@ -119,16 +118,14 @@ export async function POST(request: Request) {
             // Calories
             if (Array.isArray(body.active_calories_burned)) {
                 const dCals = body.active_calories_burned.filter((s: any) => {
-                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                    return startStr === dateStr || endStr === dateStr;
+                    const matchStr = s.start_time ? getTurkeyDateString(s.start_time) : (s.end_time ? getTurkeyDateString(s.end_time) : null);
+                    return matchStr === dateStr;
                 });
                 totalCalories = dCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
             } else if (Array.isArray(body.total_calories_burned)) {
                 const dCals = body.total_calories_burned.filter((s: any) => {
-                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                    return startStr === dateStr || endStr === dateStr;
+                    const matchStr = s.start_time ? getTurkeyDateString(s.start_time) : (s.end_time ? getTurkeyDateString(s.end_time) : null);
+                    return matchStr === dateStr;
                 });
                 totalCalories = dCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
             }
@@ -137,9 +134,8 @@ export async function POST(request: Request) {
             const exerciseArray = body.exercise || body.exercise_session;
             if (Array.isArray(exerciseArray)) {
                 const dSessions = exerciseArray.filter((s: any) => {
-                    const startStr = s.start_time ? getTurkeyDateString(s.start_time) : null;
-                    const endStr = s.end_time ? getTurkeyDateString(s.end_time) : null;
-                    return startStr === dateStr || endStr === dateStr;
+                    const matchStr = s.start_time ? getTurkeyDateString(s.start_time) : (s.end_time ? getTurkeyDateString(s.end_time) : null);
+                    return matchStr === dateStr;
                 });
                 totalActiveMinutes = dSessions.reduce((acc: number, session: any) => {
                     if (session.start_time && session.end_time) {

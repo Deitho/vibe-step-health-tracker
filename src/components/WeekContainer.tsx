@@ -82,7 +82,7 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
             </div>
 
             {/* Week Content (Animated Days List) */}
-            <div className="relative z-20 min-h-[450px]">
+            <div className="relative z-20 min-h-[500px] md:min-h-[550px]">
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     <motion.div
                         key={page}

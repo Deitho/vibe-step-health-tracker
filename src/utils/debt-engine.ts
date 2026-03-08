@@ -1,7 +1,7 @@
 import { DailyStats } from '@/lib/db';
 
 export function calculateHasExercise(calories: number, activeMinutes: number = 0): boolean {
-    return calories >= 150 || activeMinutes >= 30;
+    return calories >= 150 && activeMinutes >= 20;
 }
 
 export function calculateDailyTarget(hasExercise: boolean): number {

@@ -104,7 +104,6 @@ export async function POST(request: Request) {
         for (const dateStr of sortedDates) {
             let totalSteps = 0;
             let totalCalories = 0;
-            let totalActiveMinutes = 0;
 
             // Steps
             if (Array.isArray(body.steps)) {
@@ -132,19 +131,38 @@ export async function POST(request: Request) {
 
             // Exercise
             const exerciseArray = body.exercise || body.exercise_session;
+            let currentBatchHasExercise = false;
+
             if (Array.isArray(exerciseArray)) {
                 const dSessions = exerciseArray.filter((s: any) => {
                     const matchStr = s.start_time ? getTurkeyDateString(s.start_time) : (s.end_time ? getTurkeyDateString(s.end_time) : null);
                     return matchStr === dateStr;
                 });
-                totalActiveMinutes = dSessions.reduce((acc: number, session: any) => {
+                for (const session of dSessions) {
                     if (session.start_time && session.end_time) {
                         const start = new Date(session.start_time).getTime();
                         const end = new Date(session.end_time).getTime();
-                        return acc + Math.max(0, (end - start) / 60000);
+                        const durationMinutes = Math.max(0, (end - start) / 60000);
+
+                        let sessionCalories = session.calories || session.active_calories || session.total_calories || session.energy || session.kcal || 0;
+
+                        if (sessionCalories === 0) {
+                            const calsArray = Array.isArray(body.active_calories_burned) ? body.active_calories_burned : (Array.isArray(body.total_calories_burned) ? body.total_calories_burned : []);
+                            const overlappingCals = calsArray.filter((c: any) => {
+                                if (!c.start_time || !c.end_time) return false;
+                                const cStart = new Date(c.start_time).getTime();
+                                const cEnd = new Date(c.end_time).getTime();
+                                return (cStart >= start && cStart < end) || (cEnd > start && cEnd <= end) || (cStart <= start && cEnd >= end);
+                            });
+                            sessionCalories = overlappingCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
+                        }
+
+                        if (calculateHasExercise(sessionCalories, durationMinutes)) {
+                            currentBatchHasExercise = true;
+                            break;
+                        }
                     }
-                    return acc;
-                }, 0);
+                }
             }
 
             // Fallback simulation
@@ -160,7 +178,6 @@ export async function POST(request: Request) {
             let newSteps = Array.isArray(body.steps) ? totalSteps : (existingRecord?.steps || 0);
             let newCalories = (Array.isArray(body.active_calories_burned) || Array.isArray(body.total_calories_burned)) ? totalCalories : (existingRecord?.calories || 0);
 
-            const currentBatchHasExercise = calculateHasExercise(newCalories, totalActiveMinutes);
             let hasExercise = existingRecord?.has_exercise || false;
             if (Array.isArray(exerciseArray)) {
                 hasExercise = currentBatchHasExercise;

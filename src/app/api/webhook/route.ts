@@ -139,28 +139,19 @@ export async function POST(request: Request) {
                     return matchStr === dateStr;
                 });
                 for (const session of dSessions) {
-                    if (session.start_time && session.end_time) {
+                    // Ignore walking (type 79)
+                    if (String(session.type) === "79") continue;
+
+                    let durationSecs = session.duration_seconds;
+                    if (durationSecs === undefined && session.start_time && session.end_time) {
                         const start = new Date(session.start_time).getTime();
                         const end = new Date(session.end_time).getTime();
-                        const durationMinutes = Math.max(0, (end - start) / 60000);
+                        durationSecs = Math.max(0, (end - start) / 1000);
+                    }
 
-                        let sessionCalories = session.calories || session.active_calories || session.total_calories || session.energy || session.kcal || 0;
-
-                        if (sessionCalories === 0) {
-                            const calsArray = Array.isArray(body.active_calories_burned) ? body.active_calories_burned : (Array.isArray(body.total_calories_burned) ? body.total_calories_burned : []);
-                            const overlappingCals = calsArray.filter((c: any) => {
-                                if (!c.start_time || !c.end_time) return false;
-                                const cStart = new Date(c.start_time).getTime();
-                                const cEnd = new Date(c.end_time).getTime();
-                                return (cStart >= start && cStart < end) || (cEnd > start && cEnd <= end) || (cStart <= start && cEnd >= end);
-                            });
-                            sessionCalories = overlappingCals.reduce((acc: number, calObj: any) => acc + (calObj.energy || calObj.kcal || calObj.count || calObj.value || 0), 0);
-                        }
-
-                        if (calculateHasExercise(sessionCalories, durationMinutes)) {
-                            currentBatchHasExercise = true;
-                            break;
-                        }
+                    if (durationSecs !== undefined && durationSecs >= 900) {
+                        currentBatchHasExercise = true;
+                        break;
                     }
                 }
             }

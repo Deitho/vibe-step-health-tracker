@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { DailyStats } from '@/lib/db';
-import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { startOfWeek, endOfWeek, parseISO, format } from 'date-fns';
 
 export async function GET(request: Request) {
     try {
@@ -15,8 +15,8 @@ export async function GET(request: Request) {
         const startDate = startOfWeek(baseDate, { weekStartsOn: 1 });
         const endDate = endOfWeek(baseDate, { weekStartsOn: 1 });
 
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
+        const startDateStr = format(startDate, 'yyyy-MM-dd');
+        const endDateStr = format(endDate, 'yyyy-MM-dd');
 
         const { rows } = await sql`
       SELECT * FROM daily_stats

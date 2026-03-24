@@ -43,8 +43,8 @@ export function DayCard({ data }: DayCardProps) {
     }
 
     const originalMissing = Math.max(0, target_steps - steps);
-    const hasEverHadDebt = originalMissing > 0;
     const paidOff = Math.max(0, originalMissing - debt_steps);
+    const shouldShowDebtTracker = status === "PENDING" && debt_steps > 0 && dayName.toLowerCase() !== "bugün";
 
     return (
         <div className={`
@@ -109,20 +109,20 @@ export function DayCard({ data }: DayCardProps) {
             </div>
 
             {/* DEBT TRACKER ROW */}
-            {hasEverHadDebt && (
+            {shouldShowDebtTracker && (
                 <div className="w-full pl-2 pr-2 mt-1">
                     <div className="flex flex-col gap-1.5 pt-2 border-t border-foreground/5">
                         <div className="flex items-center justify-between text-[10px] md:text-xs">
                             <span className="text-foreground/60">Borç: <strong className="text-error">{originalMissing.toLocaleString("tr-TR")}</strong></span>
                             {paidOff > 0 && <span className="text-foreground/60">Ödenen: <strong className="text-success">{paidOff.toLocaleString("tr-TR")}</strong></span>}
-                            {debt_steps > 0 && <span className="text-foreground/60">Kalan: <strong className={status === 'FAILED' ? 'text-error' : 'text-warning'}>{debt_steps.toLocaleString("tr-TR")}</strong></span>}
+                            {debt_steps > 0 && <span className="text-foreground/60">Kalan: <strong className="text-warning">{debt_steps.toLocaleString("tr-TR")}</strong></span>}
                             {debt_steps === 0 && <span className="text-success font-bold uppercase text-[9px] md:text-[10px]">Borç Kapandı 🎉</span>}
                         </div>
                         <div className="w-full h-1.5 md:h-2 bg-foreground/10 rounded-full overflow-hidden flex relative">
                             {/* Paid portion (green) */}
                             <div className="h-full bg-success transition-all duration-700 ease-out" style={{ width: `${(paidOff / originalMissing) * 100}%` }} />
-                            {/* Remaining portion (yellow or red) */}
-                            <div className={`h-full ${status === 'FAILED' ? 'bg-error' : 'bg-warning'} transition-all duration-700 ease-out`} style={{ width: `${(debt_steps / originalMissing) * 100}%` }} />
+                            {/* Remaining portion (yellow) */}
+                            <div className="h-full bg-warning transition-all duration-700 ease-out" style={{ width: `${(debt_steps / originalMissing) * 100}%` }} />
                         </div>
                     </div>
                 </div>

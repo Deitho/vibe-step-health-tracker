@@ -241,6 +241,22 @@ export async function POST(request: Request) {
             results.push(currentStats);
         }
 
+        // Close previous weeks
+        const todayStr = getTurkeyDateString(new Date());
+        const today = new Date(todayStr); // Parses as midnight UTC, mathematically equivalent to today's start
+        const dayOfWeek = today.getDay();
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+        const monday = new Date(today);
+        monday.setDate(monday.getDate() - diffToMonday);
+        const currentWeekMondayStr = monday.toISOString().split('T')[0];
+
+        await sql`
+            UPDATE daily_stats
+            SET status = 'FAILED', updated_at = NOW()
+            WHERE status = 'PENDING' AND date < ${currentWeekMondayStr}
+        `;
+
         return NextResponse.json({ success: true, processed_dates: sortedDates.length, dates: sortedDates, data_preview: results.length > 0 ? results[results.length - 1] : null });
     } catch (error) {
         console.error('Webhook error:', error);

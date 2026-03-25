@@ -31,7 +31,7 @@ const variants = {
     }),
 };
 
-import { startOfWeek, endOfWeek } from "date-fns";
+import { startOfWeek, endOfWeek, format } from "date-fns";
 
 // ... Inside the file
 
@@ -49,33 +49,40 @@ export function WeekContainer({ days, onPreviousWeek, onNextWeek, canGoNext = fa
     const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
     const dateRangeString = `${formatShortDate(weekStart.toISOString())} - ${formatShortDate(weekEnd.toISOString())}`;
 
+    const isCurrentWeek = format(currentDate, "yyyy-ww") === format(new Date(), "yyyy-ww");
+
     return (
-        <div className="w-full relative bg-card/60 backdrop-blur-xl border border-card-border rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-xl">
+        <div className="w-full relative max-w-md mx-auto">
 
             {/* Week Header */}
             <div className="flex items-center justify-between mb-4 md:mb-6 z-10 relative">
                 <button
                     onClick={() => paginate(-1)}
-                    className="p-2 md:p-3 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors hover:scale-105"
+                    className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl bg-card-border/40 hover:bg-card-border/80 text-foreground/50 hover:text-foreground transition-all"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 md:w-5 md:h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
                 </button>
 
-                <h2 className="text-lg md:text-2xl font-black text-foreground tracking-tight uppercase">
-                    {dateRangeString}
-                </h2>
+                <div className="flex flex-col items-center justify-center">
+                    <h3 className="text-[10px] md:text-xs uppercase tracking-[0.15em] font-semibold text-foreground/50 mb-0.5">
+                        {isCurrentWeek ? "BU HAFTA" : "GEÇMİŞ HAFTA"}
+                    </h3>
+                    <h2 className="text-sm md:text-base font-bold text-foreground tracking-widest uppercase relative">
+                        {dateRangeString}
+                    </h2>
+                </div>
 
                 <button
                     onClick={() => paginate(1)}
                     disabled={!canGoNext}
-                    className={`p-2 md:p-3 rounded-full transition-colors ${canGoNext
-                        ? "bg-primary/10 hover:bg-primary/20 text-primary hover:scale-105"
-                        : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                    className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl transition-all ${canGoNext
+                        ? "bg-card-border/40 hover:bg-card-border/80 text-foreground/50 hover:text-foreground"
+                        : "bg-transparent text-transparent cursor-not-allowed" // Hidden but takes space
                         }`}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 md:w-5 md:h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
                 </button>

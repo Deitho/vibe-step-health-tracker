@@ -8,54 +8,45 @@ interface SportProgressBarProps {
 }
 
 export function SportProgressBar({ current, total }: SportProgressBarProps) {
-    const percentage = Math.min((current / total) * 100, 100);
     const isPassed = current >= total;
+    const colorClass = isPassed ? "bg-success" : "bg-primary";
+    const textClass = isPassed ? "text-success" : "text-primary";
 
     return (
-        <div className="w-full flex-col flex items-center mb-6">
-            <div className="flex justify-between w-full max-w-md mb-2 items-end">
-                <span className="text-foreground/70 font-semibold text-xs md:text-sm tracking-wider uppercase">
-                    BU HAFTAKİ SPOR SAYISI
-                </span>
-                <span
-                    className={`font-bold text-lg ${isPassed ? "text-success" : "text-primary"
-                        }`}
-                >
-                    {current} / {total}
-                </span>
-            </div>
+        <div className="w-full flex-col flex items-center mb-6 max-w-md mx-auto">
+            <div className="w-full bg-card/20 border border-card-border/40 rounded-2xl p-4 shadow-xl">
+                <div className="flex justify-between w-full mb-3 items-center">
+                    <span className="text-foreground/50 font-bold text-[10px] md:text-xs tracking-widest uppercase">
+                        BU HAFTAKİ SPOR SAYISI
+                    </span>
+                    <span className={`font-black text-sm md:text-base ${textClass}`}>
+                        {Math.min(current, total)} / {total}
+                    </span>
+                </div>
 
-            <div className="w-full max-w-md h-3 md:h-4 bg-card-border rounded-full overflow-hidden shadow-inner relative">
-                <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${percentage}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className={`h-full rounded-full absolute left-0 top-0 flex items-center justify-end pr-2 overflow-hidden ${isPassed ? "bg-success" : "bg-primary"
-                        }`}
-                />
-            </div>
+                <div className="flex gap-2 w-full h-1.5 md:h-2">
+                    {Array.from({ length: total }).map((_, i) => (
+                        <div key={i} className="flex-1 bg-foreground/10 rounded-full overflow-hidden relative">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: i < current ? "100%" : "0%" }}
+                                transition={{ duration: 0.5, delay: i * 0.15, ease: "easeOut" }}
+                                className={`h-full absolute left-0 top-0 rounded-full ${colorClass}`}
+                            />
+                        </div>
+                    ))}
+                </div>
 
-            {isPassed && (
-                <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 text-success font-bold flex items-center gap-1"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
+                {isPassed && (
+                    <motion.p
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 text-success font-medium flex items-center justify-center gap-1.5 text-[11px] md:text-xs tracking-wide"
                     >
-                        <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                        />
-                    </svg>
-                    Haftalık Hedef Tamamlandı!
-                </motion.p>
-            )}
+                        <span>🎉</span> Haftalık spor hedefine ulaştın!
+                    </motion.p>
+                )}
+            </div>
         </div>
     );
 }

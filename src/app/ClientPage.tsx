@@ -5,7 +5,6 @@ import { format, subWeeks, addWeeks } from "date-fns";
 import { DailyStats } from "@/lib/db";
 import { WeekContainer } from "@/components/WeekContainer";
 import { SportProgressBar } from "@/components/SportProgressBar";
-import { WeekSummary } from "@/components/WeekSummary";
 
 export default function ClientPage() {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());

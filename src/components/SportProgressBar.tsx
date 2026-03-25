@@ -23,9 +23,9 @@ export function SportProgressBar({ current, total }: SportProgressBarProps) {
                     <div key={i} className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
                         {i < current ? (
                             <motion.div
-                                className={`h-full rounded-full ${isComplete ? "bg-emerald-500" : "bg-cyan-500"}`}
-                                initial={{ width: 0 }}
-                                animate={{ width: "100%" }}
+                                className={`h-full rounded-full ${isComplete ? "bg-emerald-500" : "bg-cyan-500"} w-full`}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
                                 transition={{ duration: 0.5, delay: i * 0.15 }}
                             />
                         ) : null}

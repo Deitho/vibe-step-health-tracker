@@ -95,14 +95,6 @@ export default function ClientPage() {
                             canGoNext={!isCurrentWeek}
                             currentDate={currentDate}
                         />
-
-                        {weekData.length > 0 && (
-                            <WeekSummary
-                                isPassed={metrics.isPassed}
-                                exerciseCount={metrics.exerciseCount}
-                                allDaysCompleted={metrics.allDaysCompleted}
-                            />
-                        )}
                     </div>
                 )}
 

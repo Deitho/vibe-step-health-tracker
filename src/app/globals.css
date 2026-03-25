@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #00D1FF;
-  --color-secondary: #0284C7;
-  --color-cta: #F97316;
-  --color-background: #0B0F19;
-  --color-foreground: #FFFFFF;
-  --color-card: #13192B;
-  --color-card-border: #1E253A;
-
-  --color-success: #00E58F;
-  --color-warning: #FFB020;
-  --color-error: #FF4A5A;
+  --color-background: oklch(0.145 0 0);
+  --color-foreground: oklch(0.985 0 0);
+  --color-card: oklch(0.145 0 0);
+  --color-card-foreground: oklch(0.985 0 0);
+  --color-primary: oklch(0.985 0 0);
+  --color-primary-foreground: oklch(0.205 0 0);
+  --color-secondary: oklch(0.269 0 0);
+  --color-secondary-foreground: oklch(0.985 0 0);
+  --color-muted: oklch(0.269 0 0);
+  --color-muted-foreground: oklch(0.708 0 0);
+  --color-accent: oklch(0.269 0 0);
+  --color-accent-foreground: oklch(0.985 0 0);
+  --color-destructive: oklch(0.396 0.141 25.723);
+  --color-destructive-foreground: oklch(0.637 0.237 25.331);
+  --color-border: oklch(0.269 0 0);
+  --color-input: oklch(0.269 0 0);
+  --color-ring: oklch(0.439 0 0);
+  
+  /* Additional aliases used in the UI for clarity */
+  --color-card-border: oklch(0.269 0 0);
+  --color-success: #10b981;
+  --color-warning: #fbbf24;
+  --color-error: #ef4444;
   --color-sport: #B388FF;
 }
 

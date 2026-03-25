@@ -1,6 +1,8 @@
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, X, AlertTriangle, ChevronDown, Dumbbell, Timer } from "lucide-react";
 import { DailyStats } from "@/lib/db";
 import { formatDayName, formatShortDate } from "@/utils/format";
-import { motion } from "framer-motion";
 
 interface DayCardProps {
     data: DailyStats;
@@ -13,156 +15,178 @@ export function DayCard({ data }: DayCardProps) {
     const shortDate = formatShortDate(date);
     const isToday = dayName.toLowerCase() === "bugün";
 
+    const [debtExpanded, setDebtExpanded] = useState(false);
+    
     const originalMissing = Math.max(0, target_steps - steps);
     const paidOff = Math.max(0, originalMissing - debt_steps);
-    const shouldShowDebtTracker = status === "PENDING" && debt_steps > 0 && !isToday;
-
-    // Theme logic matches Figma specifically
-    let primaryColor = "text-foreground/20"; // Grey out for future days (e.g., Saturday showing 0)
-    let trackColor = "bg-foreground/10";
-    let iconBorder = "border-foreground/10";
+    const hasDebt = debt_steps > 0 || paidOff > 0;
+    const hasPendingDebt = debt_steps > 0;
+    const debtFullyPaid = hasDebt && debt_steps === 0;
     
-    // Default Empty/Future icon (grey dash)
-    let StatusIcon = (
-        <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-foreground/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
-        </svg>
-    );
+    const isFuture = status === "PENDING" && steps === 0 && !hasDebt && !isToday;
+    const canExpand = (status === "PENDING" || status === "COMPLETED") && hasDebt && !isToday;
 
-    if (isToday) {
-        // Cyan theme for Today
-        primaryColor = "text-foreground";
-        trackColor = "bg-primary";
-        iconBorder = "border-primary/40";
-        StatusIcon = (
-            <div className="w-2.5 h-2.5 md:w-3 md:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,209,255,0.8)] animate-pulse" />
-        );
-    } else if (status === "COMPLETED") {
-        if (has_exercise) {
-            primaryColor = "text-primary";
-            trackColor = "bg-primary";
-        } else {
-            primaryColor = "text-success";
-            trackColor = "bg-success";
-        }
-        iconBorder = "border-success/30 bg-success/10";
-        StatusIcon = (
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-        );
-    } else if (status === "PENDING") {
-        primaryColor = "text-warning";
-        trackColor = "bg-warning";
-        iconBorder = "border-warning/30 bg-warning/10";
-        StatusIcon = (
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-        );
-    } else if (status === "FAILED") {
-        primaryColor = "text-error";
-        trackColor = "bg-error/80"; // Slightly dimmed red explicitly for FAILED
-        iconBorder = "border-error/20 bg-error/5";
-        StatusIcon = (
-            <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        );
-    }
-    
-    const progressWidth = Math.min(100, (steps / target_steps) * 100);
+    let visualStatus: string = status;
+    if (isToday) visualStatus = "TODAY";
+
+    const statusConfig: Record<string, any> = {
+        COMPLETED: { icon: <Check className="w-3.5 h-3.5" />, bg: "bg-emerald-500/20", border: "border-emerald-500/40", color: "text-emerald-400" },
+        PENDING: { icon: <AlertTriangle className="w-3.5 h-3.5" />, bg: "bg-amber-500/20", border: "border-amber-500/40", color: "text-amber-400" },
+        FAILED: { icon: <X className="w-3.5 h-3.5" />, bg: "bg-red-500/20", border: "border-red-500/40", color: "text-red-400" },
+        TODAY: { icon: null, bg: "bg-cyan-500/10", border: "border-cyan-400/50", color: "text-cyan-400" },
+    };
+
+    const config = statusConfig[visualStatus];
+
+    const stepsPercent = Math.min((steps / target_steps) * 100, 100);
+    const clearedPercent = hasDebt
+        ? Math.min(((steps + paidOff) / target_steps) * 100, 100)
+        : stepsPercent;
 
     return (
-        <div className={`
-            relative rounded-2xl md:rounded-3xl border border-card-border/40 bg-card flex flex-col pt-3 pb-3 px-4 md:px-5 gap-1.5
-            shadow-sm w-full
-        `}>
-            {/* Top row: Name & Date */}
-            <div className="flex items-center gap-2">
-                <span className={`font-bold text-[11px] md:text-sm tracking-wider uppercase ${isToday ? "text-primary" : (status === "FAILED" ? "text-foreground/40" : "text-foreground/70")}`}>
-                    {dayName}
-                </span>
-                <span className="text-[10px] md:text-xs font-medium text-foreground/30">{shortDate}</span>
-            </div>
-
-            {/* Main row: Numbers and Icons */}
-            <div className={`flex items-end justify-between mb-1.5 ${status === "FAILED" ? "opacity-60" : ""}`}>
-                <div className="flex items-baseline gap-1.5">
-                    <span className={`text-2xl md:text-3xl font-black ${primaryColor} tracking-tight`}>
-                        {steps > 0 || isToday || status !== "PENDING" ? steps.toLocaleString("tr-TR") : "0"}
-                    </span>
-                    <span className="text-[9px] md:text-xs font-bold text-foreground/20 uppercase tracking-widest pl-1">
-                        / {target_steps.toLocaleString("tr-TR")} ADIM
-                    </span>
-                </div>
-                
-                <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                    {/* Middle Info (Debt Paid / Sport) */}
-                    {status === "COMPLETED" && paidOff > 0 && debt_steps === 0 && (
-                        <span className="text-[10px] md:text-xs text-success/80 flex items-center gap-1 font-medium mr-2">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            borç kapandı
-                            <svg className="w-3 h-3 text-success/50 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </span>
-                    )}
-                    {has_exercise && status === "COMPLETED" && (
-                        <span className="text-[10px] md:text-xs text-sport flex items-center gap-1 font-semibold tracking-wide mr-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 mb-0.5">
-                                <path d="M11.96 4.318a2.5 2.5 0 00-3.92-2.636l-2.003 1.502a.75.75 0 00.902 1.202l2.003-1.502a1 1 0 011.568 1.054l-1.076 3.23a.75.75 0 001.424.475l1.076-3.23a.75.75 0 00.026-.095z" />
-                                <path fillRule="evenodd" d="M7.75 6.5a.75.75 0 00-.75.75v3.69l-.654-.327a1.5 1.5 0 00-1.879.444l-2 2.667a.75.75 0 001.2 1.052l2-2.667.585.292v2.842a2.028 2.028 0 000 4.053H8.5a.75.75 0 000-1.5H6.252a.528.528 0 010-1.053h2.498a.75.75 0 00.75-.75v-2.121l1.503 1.503a.75.75 0 001.06-1.061l-2.02-2.02A.748.748 0 009.5 12h-1V7.25a.75.75 0 00-.75-.75z" clipRule="evenodd" />
-                            </svg>
-                            Spor
-                        </span>
-                    )}
-                    {status === "PENDING" && debt_steps > 0 && !isToday && (
-                        <span className="text-[10px] md:text-[11px] text-warning flex items-center gap-0.5 font-bold tracking-wider mr-2">
-                            -{debt_steps.toLocaleString("tr-TR")}
-                            <svg className="w-3 h-3 text-warning/60 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </span>
-                    )}
-
-                    {/* Status Circle Icon */}
-                    <div className={`w-7 h-7 md:w-9 md:h-9 rounded-full border-[1.5px] flex items-center justify-center ${iconBorder}`}>
-                       {StatusIcon}
-                    </div>
-                </div>
-            </div>
-
-            {/* Bottom Inner Progress Bar */}
-            <div className={`w-full h-1 md:h-1.5 bg-foreground/5 rounded-full overflow-hidden mt-1 opacity-90 ${status === "FAILED" ? "opacity-40" : ""}`}>
-                <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressWidth}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={`h-full rounded-full ${trackColor}`}
+        <div className={`relative rounded-xl border backdrop-blur-md transition-all overflow-hidden ${
+            isToday ? "border-cyan-400/30 bg-white/[0.04] shadow-[0_0_24px_rgba(34,211,238,0.06)]" :
+            isFuture ? "border-white/[0.04] bg-white/[0.015] opacity-35" :
+            status === "FAILED" ? "border-red-900/30 bg-white/[0.02] opacity-60" :
+            "border-white/[0.06] bg-white/[0.03]"
+        }`}>
+            {isToday && (
+                <motion.div
+                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-cyan-400"
+                    animate={{ opacity: [0.4, 1, 0.4], boxShadow: ["0 0 6px rgba(34,211,238,0.3)", "0 0 14px rgba(34,211,238,0.6)", "0 0 6px rgba(34,211,238,0.3)"] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
-            </div>
+            )}
 
-            {/* EXPANDED DEBT TRACKER ROW */}
-            {shouldShowDebtTracker && (
-                <div className="w-full mt-2 pt-3 border-t border-card-border/50">
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase font-bold tracking-widest pl-1">
-                            <span className="text-foreground/40">Borç: <strong className="text-error ml-1">{originalMissing.toLocaleString("tr-TR")}</strong></span>
-                            {paidOff > 0 && <span className="text-foreground/40">Ödenen: <strong className="text-success ml-1">{paidOff.toLocaleString("tr-TR")}</strong></span>}
-                            {debt_steps > 0 && <span className="text-foreground/40">Kalan: <strong className="text-warning ml-1">{debt_steps.toLocaleString("tr-TR")}</strong></span>}
-                        </div>
-                        <div className="w-full h-1 md:h-1.5 bg-foreground/10 rounded-full overflow-hidden flex relative opacity-80">
-                            {/* Paid portion (green) */}
-                            <div className="h-full bg-success transition-all duration-700 ease-out" style={{ width: `${(paidOff / originalMissing) * 100}%` }} />
-                            {/* Remaining portion (yellow) */}
-                            <div className="h-full bg-warning transition-all duration-700 ease-out" style={{ width: `${(debt_steps / originalMissing) * 100}%` }} />
-                        </div>
+            <div
+                className={`relative px-3.5 py-3 flex items-center gap-3 ${canExpand ? "cursor-pointer" : ""}`}
+                onClick={() => canExpand && setDebtExpanded(!debtExpanded)}
+            >
+                {/* Left: Day info */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`font-bold text-[11px] tracking-wider uppercase ${
+                            isToday ? "text-cyan-400" : status === "FAILED" ? "text-red-400/60" : "text-white/50"
+                        }`}>
+                            {dayName}
+                        </span>
+                        <span className="text-[10px] text-white/25">{shortDate}</span>
+
+                        {has_exercise && (
+                            <span className="inline-flex items-center gap-1 ml-auto">
+                                <Dumbbell className="w-3 h-3 text-violet-400" />
+                                <span className="flex items-center gap-0.5">
+                                    <span className="text-[10px] tabular-nums text-violet-300/80">Spor</span>
+                                </span>
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-baseline gap-1.5">
+                        <span className={`text-[17px] tabular-nums tracking-tight ${
+                            status === "COMPLETED" ? "text-emerald-400" :
+                            status === "FAILED" ? "text-red-400/50" :
+                            isToday ? "text-white" :
+                            isFuture ? "text-white/20" : "text-amber-300"
+                        }`} style={{ fontWeight: 600 }}>
+                            {steps > 0 || !isFuture ? steps.toLocaleString("tr-TR") : "0"}
+                        </span>
+                        <span className="text-[11px] text-white/25">/ {target_steps.toLocaleString("tr-TR")}</span>
+                        <span className="text-[9px] text-white/15 uppercase tracking-wider">adım</span>
+
+                        {hasPendingDebt && !isToday && (
+                            <span className="ml-auto flex items-center gap-1">
+                                <span className="text-[9px] tabular-nums text-amber-400/60" style={{ fontWeight: 500 }}>
+                                    –{debt_steps.toLocaleString("tr-TR")}
+                                </span>
+                                <motion.div animate={{ rotate: debtExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                                    <ChevronDown className="w-3 h-3 text-white/15" />
+                                </motion.div>
+                            </span>
+                        )}
+                        {debtFullyPaid && !isToday && (
+                            <span className="ml-auto flex items-center gap-1">
+                                <Check className="w-3 h-3 text-emerald-500/60" />
+                                <span className="text-[9px] text-emerald-400/50" style={{ fontWeight: 500 }}>borç kapandı</span>
+                                <motion.div animate={{ rotate: debtExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                                    <ChevronDown className="w-3 h-3 text-white/15" />
+                                </motion.div>
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-1.5 h-[4px] w-full rounded-full bg-white/[0.06] overflow-hidden">
+                        <motion.div
+                            className={`h-full rounded-full ${
+                                debtFullyPaid ? "bg-emerald-500" :
+                                status === "COMPLETED" ? "bg-emerald-500" :
+                                status === "FAILED" ? "bg-red-500/40" :
+                                isToday ? "bg-cyan-400" :
+                                hasPendingDebt ? "bg-amber-400" : "bg-amber-400"
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${clearedPercent}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                        />
                     </div>
                 </div>
-            )}
+
+                <div className="flex items-center shrink-0">
+                    {isToday ? (
+                        <div className="relative w-7 h-7 flex items-center justify-center">
+                            <motion.div
+                                className="absolute inset-0 rounded-full border-2 border-cyan-400/40"
+                                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                            <motion.div
+                                className="w-2.5 h-2.5 rounded-full bg-cyan-400"
+                                animate={{ scale: [0.9, 1.1, 0.9] }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                        </div>
+                    ) : isFuture ? (
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/[0.06]">
+                            <span className="text-[10px] text-white/20">&mdash;</span>
+                        </div>
+                    ) : (
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center ${config.bg} border ${config.border} ${config.color}`}>
+                            {config.icon}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {debtExpanded && canExpand && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                    >
+                        <div className="px-3.5 pb-3 pt-1">
+                            <div className="flex items-center rounded-lg bg-white/[0.025] border border-white/[0.04] px-3 py-2 gap-3">
+                                <div className="flex-1 text-center border-r border-white/[0.06]">
+                                    <span className="text-[8px] text-red-400/50 uppercase tracking-widest block mb-0.5">Borç</span>
+                                    <span className="text-[14px] text-red-400 tabular-nums" style={{ fontWeight: 600 }}>{originalMissing.toLocaleString("tr-TR")}</span>
+                                </div>
+                                <div className="flex-1 text-center border-r border-white/[0.06]">
+                                    <span className="text-[8px] text-emerald-400/50 uppercase tracking-widest block mb-0.5">Ödenen</span>
+                                    <span className="text-[14px] text-emerald-400 tabular-nums" style={{ fontWeight: 600 }}>{paidOff.toLocaleString("tr-TR")}</span>
+                                </div>
+                                <div className="flex-1 text-center">
+                                    <span className={`text-[8px] uppercase tracking-widest block mb-0.5 ${debtFullyPaid ? "text-emerald-400/50" : "text-amber-400/50"}`}>Kalan</span>
+                                    <span className={`text-[14px] tabular-nums ${debtFullyPaid ? "text-emerald-400" : "text-amber-400"}`} style={{ fontWeight: 600 }}>
+                                        {debtFullyPaid ? "✓" : debt_steps.toLocaleString("tr-TR")}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

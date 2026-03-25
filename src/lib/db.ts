@@ -14,6 +14,7 @@ export interface DailyStats {
     debt_steps: number;
     status: DailyStatus;
     debt_source_date: string[]; // YYYY-MM-DD format
+    exercise_duration_seconds?: number;
     created_at: Date;
     updated_at: Date;
 }

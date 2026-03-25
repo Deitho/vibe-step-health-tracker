@@ -9,7 +9,7 @@ interface DayCardProps {
 }
 
 export function DayCard({ data }: DayCardProps) {
-    const { date, steps, target_steps, debt_steps, status, has_exercise } = data;
+    const { date, steps, target_steps, debt_steps, status, has_exercise, exercise_duration_seconds } = data;
 
     const dayName = formatDayName(date);
     const shortDate = formatShortDate(date);
@@ -76,7 +76,15 @@ export function DayCard({ data }: DayCardProps) {
                             <span className="inline-flex items-center gap-1 ml-auto">
                                 <Dumbbell className="w-3 h-3 text-violet-400" />
                                 <span className="flex items-center gap-0.5">
-                                    <span className="text-[10px] tabular-nums text-violet-300/80">Spor</span>
+                                    <span className="text-[10px] tabular-nums text-violet-300/80 font-bold tracking-wide">Spor</span>
+                                    {exercise_duration_seconds && exercise_duration_seconds > 0 ? (
+                                        <span className="ml-1 flex items-center gap-0.5">
+                                            <Timer className="w-2.5 h-2.5 text-violet-400/60" />
+                                            <span className="text-[10px] tabular-nums text-violet-300/80">
+                                                {Math.floor(exercise_duration_seconds / 60)}<span className="text-violet-400/40 ml-[1px]">dk</span>
+                                            </span>
+                                        </span>
+                                    ) : null}
                                 </span>
                             </span>
                         )}

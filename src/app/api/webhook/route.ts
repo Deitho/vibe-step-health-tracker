@@ -132,6 +132,7 @@ export async function POST(request: Request) {
             // Exercise
             const exerciseArray = body.exercise || body.exercise_session;
             let currentBatchHasExercise = false;
+            let currentExerciseDuration = 0;
 
             if (Array.isArray(exerciseArray)) {
                 const dSessions = exerciseArray.filter((s: any) => {
@@ -149,9 +150,11 @@ export async function POST(request: Request) {
                         durationSecs = Math.max(0, (end - start) / 1000);
                     }
 
-                    if (durationSecs !== undefined && durationSecs >= 900) {
-                        currentBatchHasExercise = true;
-                        break;
+                    if (durationSecs !== undefined) {
+                        currentExerciseDuration += durationSecs;
+                        if (durationSecs >= 900) {
+                            currentBatchHasExercise = true;
+                        }
                     }
                 }
             }
@@ -170,10 +173,14 @@ export async function POST(request: Request) {
             let newCalories = (Array.isArray(body.active_calories_burned) || Array.isArray(body.total_calories_burned)) ? totalCalories : (existingRecord?.calories || 0);
 
             let hasExercise = existingRecord?.has_exercise || false;
+            let newExerciseDuration = existingRecord?.exercise_duration_seconds || 0;
+            
             if (Array.isArray(exerciseArray)) {
                 hasExercise = currentBatchHasExercise;
+                newExerciseDuration = currentExerciseDuration;
             } else {
                 hasExercise = hasExercise || currentBatchHasExercise;
+                newExerciseDuration = newExerciseDuration + currentExerciseDuration;
             }
 
             const targetSteps = calculateDailyTarget(hasExercise);
@@ -186,6 +193,7 @@ export async function POST(request: Request) {
                 steps: newSteps,
                 calories: newCalories,
                 has_exercise: hasExercise,
+                exercise_duration_seconds: newExerciseDuration,
                 target_steps: targetSteps,
                 debt_steps: debt,
                 status: status as any,
@@ -221,16 +229,17 @@ export async function POST(request: Request) {
             // Upsert
             await sql`
                 INSERT INTO daily_stats (
-                    date, steps, calories, has_exercise, target_steps, debt_steps, status, debt_source_date, updated_at
+                    date, steps, calories, has_exercise, exercise_duration_seconds, target_steps, debt_steps, status, debt_source_date, updated_at
                 ) VALUES (
                     ${currentStats.date}, ${currentStats.steps}, ${currentStats.calories}, 
-                    ${currentStats.has_exercise}, ${currentStats.target_steps}, ${currentStats.debt_steps}, 
+                    ${currentStats.has_exercise}, ${currentStats.exercise_duration_seconds}, ${currentStats.target_steps}, ${currentStats.debt_steps}, 
                     ${currentStats.status}, ARRAY[${currentStats.date}]::date[], NOW()
                 )
                 ON CONFLICT (date) DO UPDATE SET
                     steps = EXCLUDED.steps,
                     calories = EXCLUDED.calories,
                     has_exercise = EXCLUDED.has_exercise,
+                    exercise_duration_seconds = EXCLUDED.exercise_duration_seconds,
                     target_steps = EXCLUDED.target_steps,
                     debt_steps = EXCLUDED.debt_steps,
                     status = EXCLUDED.status,

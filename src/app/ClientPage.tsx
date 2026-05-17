@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format, subWeeks, addWeeks } from "date-fns";
+import { UtensilsCrossed, Camera } from "lucide-react";
 import { DailyStats } from "@/lib/db";
 import { WeekContainer } from "@/components/WeekContainer";
 import { SportProgressBar } from "@/components/SportProgressBar";
+import { FoodOverlay } from "@/components/FoodOverlay";
 
 export default function ClientPage() {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -17,6 +19,8 @@ export default function ClientPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [quote, setQuote] = useState("");
     const [quoteLoading, setQuoteLoading] = useState(true);
+    const [showFoodOverlay, setShowFoodOverlay] = useState(false);
+    const [foodOverlayStep, setFoodOverlayStep] = useState<"search" | "barcode">("search");
 
     const fetchWeekData = async (date: Date) => {
         setIsLoading(true);
@@ -64,6 +68,10 @@ export default function ClientPage() {
     // Determine if we can go to Next Week (no next week if current is today's week)
     const isCurrentWeek = format(currentDate, "yyyy-ww") === format(new Date(), "yyyy-ww");
 
+    const handleFoodSaved = useCallback(() => {
+        fetchWeekData(currentDate);
+    }, [currentDate]);
+
     return (
         <main className="min-h-screen bg-background py-10 px-4 sm:px-6 md:px-8">
             <div className="max-w-5xl mx-auto flex flex-col items-center">
@@ -83,11 +91,29 @@ export default function ClientPage() {
                     </p>
                 </div>
 
-                {/* Weekly Exercise Progress Bar */}
-                <SportProgressBar
-                    current={metrics.exerciseCount}
-                    total={3}
-                />
+                {/* Weekly Exercise Progress Bar + Food Buttons */}
+                <div className="w-full max-w-sm mx-auto mb-6 flex items-stretch gap-2">
+                    <div className="flex-1">
+                        <SportProgressBar
+                            current={metrics.exerciseCount}
+                            total={3}
+                        />
+                    </div>
+                    <button
+                        onClick={() => { setFoodOverlayStep("search"); setShowFoodOverlay(true); }}
+                        className="aspect-square rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-md flex items-center justify-center hover:bg-white/[0.06] transition-colors text-white/40 hover:text-white/70"
+                        title="Besin ekle"
+                    >
+                        <UtensilsCrossed className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => { setFoodOverlayStep("barcode"); setShowFoodOverlay(true); }}
+                        className="aspect-square rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-md flex items-center justify-center hover:bg-white/[0.06] transition-colors text-white/40 hover:text-white/70 md:hidden"
+                        title="Barkod okut"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
+                </div>
 
                 {/* Main Content Area */}
                 {isLoading ? (
@@ -111,6 +137,14 @@ export default function ClientPage() {
                 )}
 
             </div>
+
+            <FoodOverlay
+                isOpen={showFoodOverlay}
+                onClose={() => setShowFoodOverlay(false)}
+                date={format(new Date(), "yyyy-MM-dd")}
+                onSaved={handleFoodSaved}
+                initialStep={foodOverlayStep}
+            />
         </main>
     );
 }

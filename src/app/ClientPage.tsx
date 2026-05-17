@@ -15,6 +15,8 @@ export default function ClientPage() {
         isPassed: false,
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [quote, setQuote] = useState("");
+    const [quoteLoading, setQuoteLoading] = useState(true);
 
     const fetchWeekData = async (date: Date) => {
         setIsLoading(true);
@@ -41,8 +43,15 @@ export default function ClientPage() {
 
     useEffect(() => {
         fetchWeekData(currentDate);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentDate]);
+
+    useEffect(() => {
+        fetch('/api/quote')
+            .then(res => res.json())
+            .then(data => setQuote(data.quote))
+            .catch(() => setQuote("Sağlıklı adımlar, mutlu yarınlar!"))
+            .finally(() => setQuoteLoading(false));
+    }, []);
 
     const handlePreviousWeek = () => {
         setCurrentDate((prev) => subWeeks(prev, 1));
@@ -60,13 +69,17 @@ export default function ClientPage() {
             <div className="max-w-5xl mx-auto flex flex-col items-center">
 
                 {/* Header Title */}
-                <div className="text-center mb-4">
+                <div className="text-center mb-6">
                     <h1 className="text-4xl md:text-6xl font-black text-primary tracking-tighter uppercase italic drop-shadow-sm">
-                        ASİSTAN
-                        <span className="text-cta"> &lt;3 HANIM</span>
+                        VIBE
+                        <span className="text-cta"> STEP</span>
                     </h1>
-                    <p className="text-foreground/70 font-medium mt-2 tracking-wide uppercase text-sm">
-                        Doktor Bey'in Spor Günlüğü
+                    <p className="text-foreground/60 font-medium mt-3 tracking-wide text-sm min-h-[1.5em]">
+                        {quoteLoading ? (
+                            <span className="animate-pulse text-white/30 italic">...</span>
+                        ) : (
+                            <span className="italic">&ldquo;{quote}&rdquo;</span>
+                        )}
                     </p>
                 </div>
 

@@ -92,28 +92,28 @@ export default function ClientPage() {
                 </div>
 
                 {/* Weekly Exercise Progress Bar + Food Buttons */}
-                <div className="w-full max-w-sm mx-auto mb-6 flex items-stretch gap-2">
-                    <div className="flex-1">
-                        <SportProgressBar
-                            current={metrics.exerciseCount}
-                            total={3}
-                        />
-                    </div>
-                    <button
-                        onClick={() => { setFoodOverlayStep("search"); setShowFoodOverlay(true); }}
-                        className="aspect-square rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-md flex items-center justify-center hover:bg-white/[0.06] transition-colors text-white/40 hover:text-white/70"
-                        title="Besin ekle"
-                    >
-                        <UtensilsCrossed className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => { setFoodOverlayStep("barcode"); setShowFoodOverlay(true); }}
-                        className="aspect-square rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-md flex items-center justify-center hover:bg-white/[0.06] transition-colors text-white/40 hover:text-white/70 md:hidden"
-                        title="Barkod okut"
-                    >
-                        <Camera className="w-5 h-5" />
-                    </button>
-                </div>
+                <SportProgressBar
+                    current={metrics.exerciseCount}
+                    total={3}
+                    actions={
+                        <>
+                            <button
+                                onClick={() => { setFoodOverlayStep("search"); setShowFoodOverlay(true); }}
+                                className="w-11 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+                                title="Besin ekle"
+                            >
+                                <UtensilsCrossed className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={() => { setFoodOverlayStep("barcode"); setShowFoodOverlay(true); }}
+                                className="w-11 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/[0.06] transition-colors md:hidden"
+                                title="Barkod okut"
+                            >
+                                <Camera className="w-5 h-5" />
+                            </button>
+                        </>
+                    }
+                />
 
                 {/* Main Content Area */}
                 {isLoading ? (

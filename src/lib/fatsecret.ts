@@ -1,7 +1,7 @@
 const FS_TOKEN_URL = "https://oauth.fatsecret.com/connect/token";
 const FS_API_URL = "https://platform.fatsecret.com/rest/server.api";
 
-let cachedToken: string | null = null;
+let cachedToken: string = "";
 let tokenExpiresAt = 0;
 
 async function getAccessToken(): Promise<string> {
@@ -32,6 +32,9 @@ async function getAccessToken(): Promise<string> {
   }
 
   const data = await res.json();
+  if (!data.access_token) {
+    throw new Error("FatSecret token yanitinda access_token bulunamadi");
+  }
   cachedToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
   return cachedToken;
